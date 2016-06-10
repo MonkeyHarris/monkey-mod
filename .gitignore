@@ -1,0 +1,6 @@
+*.ncb
+*.opt
+*.plg
+*.suo
+*.user
+Release/

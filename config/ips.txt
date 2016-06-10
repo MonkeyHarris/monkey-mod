@@ -1,0 +1,8 @@
+// list the IPs you want to ban from entering the server here
+// you can ban subnets by leaving the ip entries empty after the last dot (.)
+// example: you wanna ban 134.115.X.X you would put 134.115.
+// warning: the DOT at the end is required if you want to ban subnets
+// 1 IP per line
+
+
+

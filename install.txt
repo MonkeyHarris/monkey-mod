@@ -1,0 +1,46 @@
+Win32 version installation
+==========================
+Create a "comp" directory and unzip the Monkey Mod ZIP into it (except for
+"geoip.dll" - see below). Copy your "server.cfg", "maps.lst" and "teammaps.lst"
+files from the "main" directory into the "comp" directory. Set the mod options
+and server defaults in the "comp.ini" file.
+
+To start the server:
+	kingpin.exe +set dedicated 1 +set game comp +exec server.cfg
+
+Or if you use the kpded.exe executable:
+	kpded.exe +set game comp +exec server.cfg
+
+
+Linux version installation
+==========================
+Backup your "main/gamei386.so" file so that you can get back to the original
+game if you wish to.
+
+Unzip the Monkey Mod ZIP into your kingpin directory. Set the mod options
+and server defaults in the "main/comp.ini" file.
+
+To start the server:
+	nohup ./kpded +exec server.cfg &
+
+
+*** IMPORTANT *** : Make sure you take the time to setup the "comp.ini" options
+correctly for the type of server that you wish to run.
+
+
+GeoIP setup
+===========
+Monkey Mod can display what country players connect from, using the MaxMind GeoIP
+library and database.
+
+On Windows, the "geoip.dll" library (included in the Monkey Mod ZIP) and "geoip.dat"
+database should be placed in your kingpin directory.
+
+The latest GeoLite Country database (geoip.dat) can be downloaded from here:
+	http://dev.maxmind.com/geoip/legacy/geolite/
+
+On Linux, the GeoIP library and database can be installed from the distro's
+repositories.
+
+If you wish to disable country lookups, you can simply remove the GeoIP library
+and/or database.
