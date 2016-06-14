@@ -2789,7 +2789,7 @@ qboolean ClientConnect (edict_t *ent, char *userinfo)
 
 	{
 		extern void *geoip;
-		if (geoip) {
+		if (geoip && strchr(ent->client->pers.ip, ':')) {
 			extern const char *(*_GeoIP_country_name_by_addr)(void* gi, const char *addr);
 			char ip[32];
 			strcpy(ip, ent->client->pers.ip);
