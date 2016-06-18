@@ -455,6 +455,7 @@ int read_map_file()
 			}
 
 			sscanf(buffer, "%s %s", rank, map);	
+			kp_strlwr(map); // prevent MAX_GLTEXTURES errors caused by uppercase letters in the map vote pic names
 			strncpy(custom_list[num_custom_maps].custom_map, map, 32);
 			custom_list[num_custom_maps].rank = atoi(rank);
 			total_rank += custom_list[num_custom_maps].rank;
