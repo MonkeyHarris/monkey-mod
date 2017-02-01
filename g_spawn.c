@@ -1061,7 +1061,7 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 	if (kpded2)
 	{
 		// make the Monkey Mod image downloadable (with kpded2)
-		dlindex("pics/mmod/test.tga");
+		dlindex("pics/mmod/mascot.tga");
 		if (teamplay->value)
 		{
 			// and the team indicators
