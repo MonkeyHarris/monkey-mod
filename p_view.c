@@ -67,43 +67,12 @@ void P_DamageFeedback (edict_t *player)
 		client->ps.stats[STAT_FLASHES] |= 1;
 	if (client->damage_armor && !(player->flags & FL_GODMODE) && (client->invincible_framenum <= level.framenum))
 		client->ps.stats[STAT_FLASHES] |= 2;
+
 	// total points of damage shot at the player this frame
 	count = (client->damage_blood + client->damage_flame + client->damage_armor + client->damage_parmor);
 	if (count == 0)
 		return;		// didn't take any damage
-/*
-	// start a pain animation if still in the player model
-	if (client->anim_priority < ANIM_PAIN && player->s.modelindex == 255)
-	{
-		static int		i;
 
-		client->anim_priority = ANIM_PAIN;
-		if (client->ps.pmove.pm_flags & PMF_DUCKED)
-		{
-			player->s.frame = FRAME_crpain1-1;
-			client->anim_end = FRAME_crpain4;
-		}
-		else
-		{
-			i = (i+1)%3;
-			switch (i)
-			{
-			case 0:
-				player->s.frame = FRAME_pain101-1;
-				client->anim_end = FRAME_pain104;
-				break;
-			case 1:
-				player->s.frame = FRAME_pain201-1;
-				client->anim_end = FRAME_pain204;
-				break;
-			case 2:
-				player->s.frame = FRAME_pain301-1;
-				client->anim_end = FRAME_pain304;
-				break;
-			}
-		}
-	}
-*/
 	realcount = count;
 	if (count < 10)
 		count = 10;	// always make a visible effect
@@ -113,13 +82,13 @@ void P_DamageFeedback (edict_t *player)
 	{
 		r = 1 + (rand()&1);
 		player->pain_debounce_time = level.time + 0.7;
-/*		if (player->health < 25)
+		if (player->health < 25)
 			l = 25;
 		else if (player->health < 50)
 			l = 50;
 		else if (player->health < 75)
 			l = 75;
-		else*/
+		else
 			l = 100;
 		gi.sound (player, CHAN_VOICE, gi.soundindex(va("*pain%i_%i.wav", l, r)), 1, ATTN_NORM, 0);
 	}
@@ -407,12 +376,11 @@ void SV_CalcBlend (edict_t *ent)
 {
 	int		contents;
 	vec3_t	vieworg;
-//	int		remaining;
 
-  	ent->client->ps.blend[0] = ent->client->ps.blend[1] = 
+	ent->client->ps.blend[0] = ent->client->ps.blend[1] = 
 		ent->client->ps.blend[2] = ent->client->ps.blend[3] = 0;
 
-    // add for contents
+	// add for contents
 	VectorAdd (ent->s.origin, ent->client->ps.viewoffset, vieworg);
 	contents = gi.pointcontents (vieworg);
 	if (contents & (CONTENTS_LAVA|CONTENTS_SLIME|CONTENTS_WATER) )
@@ -430,50 +398,23 @@ void SV_CalcBlend (edict_t *ent)
 		SV_AddBlend (0.03, 0.04, 0.03, 0.4, ent->client->ps.blend);
 	// END JOSEPH	
 
-    // JOSEPH 9-JUN-99-B
-	if (level.fadeendtime > level.time)
-	{
-		float alpha;
-		if (level.inversefade)
-		{
-			alpha = 1.0 - ((level.fadeendtime - level.time)*(1.0/level.totalfade));
-            //gi.dprintf("level.fadeendtime > level.time\n");
-		}
-		else
-		alpha = (level.fadeendtime - level.time)*(1.0/level.totalfade);
-		
-		SV_AddBlend (0.0, 0.0, 0.0, alpha, ent->client->ps.blend);
-	}
-	else
-	{
-		if (level.inversefade)
-		{
-			SV_AddBlend (0.0, 0.0, 0.0, 1.0, ent->client->ps.blend);	
-			// JOSEPH 11-JUN-99-B
-			//gi.StopRender();
-			// END JOSEPH
-            //gi.dprintf("level.fadeendtime < level.time\n");
-		}
-	}
-	// END JOSEPH
-
-    // black spectator screen
-    if(ent->client->pers.spectator==SPECTATING && no_spec->value
-        && !(ent->client->pers.admin > NOT_ADMIN || ent->client->pers.rconx[0])
-        && (level.modeset==MATCH || level.modeset==TEAMPLAY || level.modeset==FREEFORALL))
-        SV_AddBlend (0.0, 0.0, 0.0, 1.0, ent->client->ps.blend);
+	// black spectator screen
+	if (ent->client->pers.spectator == SPECTATING && no_spec->value
+		&& !(ent->client->pers.admin > NOT_ADMIN || ent->client->pers.rconx[0])
+		&& level.modeset == MATCH)
+		SV_AddBlend (0.0, 0.0, 0.0, 1.0, ent->client->ps.blend);
 
 	// add for damage
 	if (ent->client->damage_alpha > 0)
-		SV_AddBlend (ent->client->damage_blend[0],ent->client->damage_blend[1]
-		,ent->client->damage_blend[2], ent->client->damage_alpha, ent->client->ps.blend);
+		SV_AddBlend (ent->client->damage_blend[0], ent->client->damage_blend[1],
+			ent->client->damage_blend[2], ent->client->damage_alpha, ent->client->ps.blend);
 
-    	// drop the damage value
+	// drop the damage value
 	ent->client->damage_alpha -= 0.06;
 	if (ent->client->damage_alpha < 0)
 		ent->client->damage_alpha = 0;
 
-    if(ent->client->pers.polyblender) return;
+	if (ent->client->pers.polyblender) return;
 
 	if (ent->client->bonus_alpha > 0)
 		SV_AddBlend (0.85, 0.7, 0.3, ent->client->bonus_alpha, ent->client->ps.blend);
@@ -515,7 +456,7 @@ void P_FallingDamage (edict_t *ent)
 		delta = ent->velocity[2] - ent->client->oldvelocity[2];
 
 		// Ridah, don't do damage so much as Q2 did
-		if (deathmatch->value)// && ent->client->oldvelocity[2] > -400)
+		if (deathmatch_value)// && ent->client->oldvelocity[2] > -400)
 		{
 			delta *= 0.9;
 		}
@@ -569,7 +510,7 @@ void P_FallingDamage (edict_t *ent)
 			damage = 1;
 		VectorSet (dir, 0, 0, 1);
 
-		if (!deathmatch->value || !((int)dmflags->value & DF_NO_FALLING) )
+		if (!deathmatch_value || !((int)dmflags->value & DF_NO_FALLING) )
 			T_Damage (ent, world, world, dir, ent->s.origin, vec3_origin, damage, 0, 0, MOD_FALLING);
 	}
 	else
@@ -611,7 +552,6 @@ void P_WorldEffects (void)
 	//
 	if (!old_waterlevel && waterlevel)
 	{
-		PlayerNoise(current_player, current_player->s.origin, PNOISE_SELF);
 		if (current_player->watertype & CONTENTS_LAVA)
 			gi.sound (current_player, CHAN_BODY, gi.soundindex("actors/player/lava_in.wav"), 1, ATTN_NORM, 0);
 		// JOSEPH 13-MAY-99
@@ -631,7 +571,6 @@ void P_WorldEffects (void)
 	//
 	if (old_waterlevel && ! waterlevel)
 	{
-		PlayerNoise(current_player, current_player->s.origin, PNOISE_SELF);
 		// JOSEPH 13-MAY-99 
 		gi.sound (current_player, CHAN_BODY, gi.soundindex("actors/player/male/watr_out.wav"), 1, ATTN_NORM, 0);
 		// END JOSEPH
@@ -724,8 +663,6 @@ void P_WorldEffects (void)
 			// Rafael-final
 			gi.sound (current_player, CHAN_VOICE, gi.soundindex("*gasp1.wav"), 1, ATTN_NORM, 0);
 			//gi.sound (current_player, CHAN_VOICE, gi.soundindex("actors/player/male/gasp1.wav"), 1, ATTN_NORM, 0);
-
-			PlayerNoise(current_player, current_player->s.origin, PNOISE_SELF);
 		}
 		else  if (current_player->air_finished < level.time + 11)
 		{	// just break surface
@@ -807,7 +744,6 @@ void P_WorldEffects (void)
 				//	gi.sound (current_player, CHAN_AUTO, gi.soundindex("actors/player/u_breath2.wav"), 1, ATTN_NORM, 0);
 				// END JOSEPH
 				current_client->breather_sound ^= 1;
-				PlayerNoise(current_player, current_player->s.origin, PNOISE_SELF);
 				//FIXME: release a bubble?
 			}
 		}
@@ -887,18 +823,12 @@ G_SetClientEffects
 */
 void G_SetClientEffects (edict_t *ent)
 {
-	int		pa_type;
 	int		remaining;
 
 	ent->s.effects = 0;
 	ent->s.renderfx = 0;
 
-	// RAFAEL
-	if (level.cut_scene_time)
-		return;
-	else if (level.pawn_time)
-		return;
-	else if (level.intermissiontime)
+	if (level.intermissiontime)
 		return;
 
 	if (ent->onfiretime > 0)
@@ -911,20 +841,6 @@ void G_SetClientEffects (edict_t *ent)
 
 	if (ent->health <= 0)
 		return;
-
-	if (ent->powerarmor_time > level.time)
-	{
-		pa_type = PowerArmorType (ent);
-		if (pa_type == POWER_ARMOR_SCREEN)
-		{
-			ent->s.effects |= EF_POWERSCREEN;
-		}
-		else if (pa_type == POWER_ARMOR_SHIELD)
-		{
-			ent->s.effects |= EF_COLOR_SHELL;
-			ent->s.renderfx |= RF_SHELL_GREEN;
-		}
-	}
 
 	if (ent->client->quad_framenum > level.framenum)
 	{
@@ -945,7 +861,8 @@ void G_SetClientEffects (edict_t *ent)
 	if (ent->client->invincible_framenum > level.framenum)
 	{
 		remaining = ent->client->invincible_framenum - level.framenum;
-		if (remaining > 30 || (remaining & 4) ) {
+		if (remaining > 30 || (remaining & 4) )
+		{
 //			ent->s.effects |= EF_PENT;
 			ent->s.effects |= EF_COLOR_SHELL;
 			ent->s.renderfx |= RF_SHELL_GREEN;
@@ -959,7 +876,8 @@ void G_SetClientEffects (edict_t *ent)
 		ent->s.renderfx |= (RF_SHELL_RED|RF_SHELL_GREEN|RF_SHELL_BLUE);
 	}
 
-	if (deathmatch->value && teamplay->value && ent->client->pers.bagcash)
+	// EF_COLOR_SHELL + RF2_MONEYBAG = r_cullaliasmodel errors
+	if (deathmatch_value && teamplay->value && ent->client->pers.bagcash && !(ent->s.effects & EF_COLOR_SHELL))
 	{
 		ent->s.renderfx2 |= RF2_MONEYBAG;
 	}
@@ -967,6 +885,11 @@ void G_SetClientEffects (edict_t *ent)
 	{
 		ent->s.renderfx2 &= ~RF2_MONEYBAG;
 	}
+
+	if (no_shadows->value)
+		ent->s.renderfx2 |= RF2_NOSHADOW;
+	else
+		ent->s.renderfx2 &= ~RF2_NOSHADOW;
 }
 
 
@@ -981,7 +904,7 @@ void G_SetClientEvent (edict_t *ent)
 	if (ent->s.event)
 		return;
 
-	if ( ent->groundentity && xyspeed > 270)
+	if ( ent->groundentity && xyspeed > 200) // 200 = running
 	{
 		if ( (int)(current_client->bobtime+bobmove) != bobcycle )
 			// Ridah, Hovercars, no footsteps
@@ -1012,23 +935,6 @@ G_SetClientSound
 void G_SetClientSound (edict_t *ent)
 {
 	char	*weap;
-
-	
-	if (ent->client->pers.game_helpchanged != game.helpchanged)
-	{
-		ent->client->pers.game_helpchanged = game.helpchanged;
-		ent->client->pers.helpchanged = 1;
-	}
-	
-
-	// JOSEPH 29-MAR-99
-	// help beep (no more than three times)
-	/*if (ent->client->pers.helpchanged && ent->client->pers.helpchanged <= 3 && !(level.framenum&63) )
-	{
-		ent->client->pers.helpchanged++;
-		gi.sound (ent, CHAN_VOICE, gi.soundindex ("misc/pc_up.wav"), 1, ATTN_STATIC, 0);
-	}*/
-	// END JOSEPH
 
 	if (ent->client->pers.weapon)
 		weap = ent->client->pers.weapon->classname;
@@ -1115,7 +1021,7 @@ void G_SetClientFrame (edict_t *ent)
 
 	run *= 1 + (speed > 200);
 
-	if (client->pers.weapon && (ent->noise_time > (level.time + 1.5)))
+	if (client->pers.weapon && client->weaponstate == WEAPON_FIRING)
 	{
 		if (strstr(client->pers.weapon->classname, "pistol"))
 			weapontype = WEAPON_PISTOL;
@@ -1153,11 +1059,11 @@ void G_SetClientFrame (edict_t *ent)
 		return;		// stay there
 	}
 
-	if ((client->anim_priority < ANIM_DEATH) && (client->last_weapontype != weapontype))
+	if ((client->last_weapontype != weapontype) && weapontype)
 		goto newanim;
 
 	// check for stand/duck and stop/go transitions
-	if (duck != client->anim_duck && client->anim_priority < ANIM_DEATH)
+	if (duck != client->anim_duck)
 		goto newanim;
 	if (run != client->anim_run && client->anim_priority <= ANIM_BASIC)
 		goto newanim;
@@ -1165,11 +1071,11 @@ void G_SetClientFrame (edict_t *ent)
 		goto newanim;
 	if (!ent->groundentity && client->anim_priority <= ANIM_WAVE)
 		goto newanim;
-	if (client->anim_priority == ANIM_JUMP && ent->groundentity)
+	if ((client->anim_priority == ANIM_JUMP || client->anim_priority == ANIM_JUMP_ATTACK) && ent->groundentity)
 		goto newanim;
 
 	// attacking while standing?
-	if (!client->anim_run && !client->anim_slide && (client->anim_priority == ANIM_BASIC) && (client->buttons & BUTTON_ATTACK))
+	if (!client->anim_run && !client->anim_slide && (client->anim_priority == ANIM_BASIC) && client->weaponstate == WEAPON_FIRING)
 		goto newanim;
 
 	if ((client->anim_priority == ANIM_REVERSE) || client->anim_reverse)
@@ -1253,6 +1159,11 @@ newanim:
 
 	if (!ent->groundentity)
 	{
+		if (client->weaponstate == WEAPON_FIRING)
+		{
+			client->anim_priority = ANIM_JUMP_ATTACK;
+			goto attack;
+		}
 		client->anim_priority = ANIM_JUMP;
 //		if (ent->s.frame != FRAME_jump_07)
 			ent->s.frame = FRAME_jump_01;
@@ -1550,7 +1461,7 @@ newanim:
 
 		}
 	}
-	else if (client->buttons & BUTTON_ATTACK)
+	else if (client->weaponstate == WEAPON_FIRING)
 	{	// standing attack
 
 		client->anim_priority = ANIM_ATTACK;
@@ -1575,6 +1486,7 @@ newanim:
 		}
 		else
 		{
+attack:
 			switch (weapontype)
 			{
 			case WEAPON_NONE:
@@ -1659,11 +1571,29 @@ void ClientEndServerFrame (edict_t *ent)
 	float	bobtime;
 	int		i;
 
-	// Ridah, had to put this here so the AI can process a gunshot before it gets cleared
-	ent->client->gun_noise = false;
-
 	current_player = ent;
 	current_client = ent->client;
+
+	if (ent->client->chase_target)
+		UpdateChaseCam(ent);
+
+	if (kpded2)
+	{
+		// if eyecam is enabled, set who's eyes we're looking through
+		if (ent->client->chase_target && ent->client->chasemode == EYECAM_CHASE)
+			ent->client->pov = ent->client->chase_target - g_edicts - 1;
+		else
+			ent->client->pov = -1;
+
+		// set team info to be shown in server browsers
+		ent->client->team = ent->client->pers.team;
+
+		// don't send any entities/players to spectators when spectating is disabled
+		if (level.modeset == MATCH && no_spec->value && ent->client->pers.spectator == SPECTATING && !ent->client->pers.admin && !ent->client->pers.rconx[0])
+			ent->client->noents = true;
+		else
+			ent->client->noents = false;
+	}
 
 	//
 	// If the origin or velocity have changed since ClientThink(),
@@ -1676,7 +1606,8 @@ void ClientEndServerFrame (edict_t *ent)
 	for (i=0 ; i<3 ; i++)
 	{
 		current_client->ps.pmove.origin[i] = ent->s.origin[i]*8.0;
-		current_client->ps.pmove.velocity[i] = ent->velocity[i]*8.0;
+		// make sure the velocity can overflow ("trigger_push" may exceed the limit) for back-compatibility (newer GCC may otherwise give 0x8000)
+		current_client->ps.pmove.velocity[i] = (int)(ent->velocity[i]*8.0);
 	}
 
 	//
@@ -1685,35 +1616,25 @@ void ClientEndServerFrame (edict_t *ent)
 	//
 	if (level.intermissiontime)
 	{
-		// FIXME: add view drifting here?
-		current_client->ps.blend[3] = 0;
+		// darken the intermission background
+		current_client->ps.blend[0] = 0;
+		current_client->ps.blend[1] = 0;
+		current_client->ps.blend[2] = 0;
+		current_client->ps.blend[3] = 0.5;
 		current_client->ps.fov = 90;
+		if (level.framenum == level.startframe) return; // delay hud refresh to avoid overflow
 		G_SetStats (ent);
-		return;
+		goto updatescore;
 	}
 
-	// RAFAEL
-	// JOSEPH 25-FEB-99
-	if (level.cut_scene_time)
+	if (ent->client->chase_target && ent->client->chasemode == EYECAM_CHASE)
 	{
-		current_client->ps.blend[3] = 0;
-		// note to self
-		// we may want to script the fov to an event
-		// Joseph 22-FEB-99
-		//current_client->ps.fov = 90;
-		// END JOSEPH
-		SV_CalcBlend (ent);
 		G_SetStats (ent);
-		return;
+		goto updatescore;
 	}
-	// END JOSEPH
-	else if (level.pawn_time)
-	{
-		current_client->ps.blend[3] = 0;
-		
-		G_SetStats (ent);
-		return;
-	}
+
+	if (ent->client->chase_target)
+		ent->client->ps.fov = 90;
 
 	AngleVectors (ent->client->v_angle, forward, right, up);
 
@@ -1781,7 +1702,9 @@ void ClientEndServerFrame (edict_t *ent)
 		else
 			bobmove = 0.0625;
 	}
-	
+	else
+		bobmove = 0; // stop bobbing when off ground
+
 	bobtime = (current_client->bobtime += bobmove);
 
 	if (current_client->ps.pmove.pm_flags & PMF_DUCKED)
@@ -1863,16 +1786,88 @@ if (ent->flags & (FL_HOVERCAR | FL_HOVERCAR_GROUND | FL_BIKE))
 		VectorClear (ent->client->kick_angles);
 	}
 
-	// if the scoreboard is up, update it
-	// Papa - Here is where I time MOTD  (phear the magic numbers)
-	if (ent->client->showscores && !(level.framenum & 31) )
+	// store the client's position for backward reconciliation later
+	if (antilag->value && ent->solid != SOLID_NOT)
+		G_StoreHistory(ent);
+
+updatescore:
+	if (ent->client->resp.enterframe == level.framenum) return;
+
+	if (ent->client->showscores == SCORE_MOTD && (level.framenum == (ent->client->resp.enterframe + 150)
+		|| (level.modeset == ENDGAMEVOTE && level.framenum == (ent->client->resp.enterframe + 100))))
 	{
-		if ((ent->client->showscores == SCORE_MOTD) && (level.framenum > 150 + ent->client->resp.enterframe))
-			if (teamplay->value)
-				ent->client->showscores = SCOREBOARD;
+		if (level.modeset == ENDGAMEVOTE)
+			ent->client->showscores = SCORE_MAP_VOTE;
+		else
+			ent->client->showscores = SCOREBOARD;
+		ent->client->resp.scoreboard_frame = 0;
+	}
+	if (level.modeset == ENDGAMEVOTE && ent->client->showscores == SCOREBOARD && level.framenum == (level.startframe + 150) && !ent->client->resp.vote)
+	{
+		ent->client->showscores = SCORE_MAP_VOTE;
+		ent->client->resp.scoreboard_frame = 0;
+	}
+	// if the scoreboard is due for an update, update it
+	if ((!ent->client->resp.scoreboard_frame || (ent->client->showscores && !ent->client->resp.textbuf[0] && level.framenum >= (ent->client->resp.scoreboard_frame + 30)))
+		&& level.framenum >= (ent->client->resp.enterframe + 5))
+	{
+		DeathmatchScoreboard(ent);
+		return;
+	}
+
+	if (ent->client->resp.textbuf[0])
+	{
+		char *b = ent->client->resp.textbuf;
+		int j = strlen(b);
+		if (j > 300)
+		{
+			for (i = 300; i < j-20; i++)
+				if (b[i] == '\n')
+				{
+					b[i] = 0;
+					gi.cprintf(ent, PRINT_HIGH, "%s\n", b);
+					memmove(b, b + i + 1, j - i);
+					goto donetext;
+				}
+		}
+		gi.cprintf(ent, PRINT_HIGH, "%s", b);
+		b[0] = 0;
+	}
+donetext:
+	if (level.intermissiontime) return;
+
+	if (level.framenum > ent->client->resp.checkdelta)
+	{
+		ent->client->resp.checkdelta = level.framenum + 70 + (rand()&7);
+		gi.WriteByte(svc_stufftext);
+		gi.WriteString("cl_nodelta 0\n");
+		gi.unicast(ent, false);
+	}
+	else if (level.framenum > ent->client->resp.checktex)
+	{
+		ent->client->resp.checktex = level.framenum + 80 + (rand()&7);
+		gi.WriteByte(svc_stufftext);
+		gi.WriteString(va("cmd %sA $gl_picmip $gl_maxtexsize $gl_polyblend\n", cmd_check));
+		gi.unicast(ent, false);
+	}
+	else if (level.framenum > ent->client->resp.checkpvs)
+	{
+		ent->client->resp.checkpvs = level.framenum + 80 + (rand()&7);
+		gi.WriteByte(svc_stufftext);
+		gi.WriteString(va("cmd %sB $gl_clear $r_drawworld\n", cmd_check)); /* $gl_ztrick */
+		gi.unicast(ent, false);
+	}
+	else if (ent->solid != SOLID_NOT && !ent->deadflag)
+	{
+		if (level.framenum > ent->client->resp.checkmouse)
+		{
+			ent->client->resp.checkmouse = level.framenum + 30 + (rand()&3);
+			gi.WriteByte(svc_stufftext);
+			if (antilag->value)
+				gi.WriteString(va("cmd %sC $m_pitch $antilag\n", cmd_check)); // piggy-back the mouse check
 			else
-				ent->client->showscores = NO_SCOREBOARD;
-		DeathmatchScoreboard (ent);
+				gi.WriteString(va("cmd %sC $m_pitch\n", cmd_check));
+			gi.unicast(ent, true);
+		}
 	}
 }
-

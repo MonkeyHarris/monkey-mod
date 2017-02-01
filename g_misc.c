@@ -550,7 +550,7 @@ void BecomeExplosion2 (edict_t *self)
 
 
 
-
+#if 0
 /*QUAKED path_corner_cast (.5 .3 0) (-16 -16 -24) (16 16 42) TELEPORT
 Target: next path corner
 Scriptname: hard-coded script to call when reaching this marker
@@ -678,6 +678,7 @@ void SP_path_corner_cast (edict_t *self)
 
 	gi.linkentity (self);
 }
+#endif
 
 /*QUAKED path_corner (.5 .3 0) (-8 -8 -8) (8 8 8) TELEPORT
 NOTE: Use path_corner_cast for character path's
@@ -1710,8 +1711,6 @@ void func_explosive_explode (edict_t *self, edict_t *inflictor, edict_t *attacke
 	int		count;
 	int		mass;
 
-	PlayerNoise( attacker, attacker->s.origin, PNOISE_WEAPON );
-
 	// bmodel origins are (0 0 0), we need to adjust that here
 	VectorScale (self->size, 0.5, size);
 	VectorAdd (self->absmin, size, origin);
@@ -1845,7 +1844,7 @@ void func_explosive_spawn (edict_t *self, edict_t *other, edict_t *activator)
 
 void SP_func_explosive (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2015,7 +2014,7 @@ void SP_misc_explobox (edict_t *self)
 
 // END JOSEPH	
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2411,6 +2410,10 @@ void teleporter_touch (edict_t *self, edict_t *other, cplane_t *plane, csurface_
 	VectorClear (other->client->ps.viewangles);
 	VectorClear (other->client->v_angle);
 
+	// we don't want players being backward-reconciled back through teleporters
+	if (antilag->value)
+		G_ResetHistory(other);
+
 	// kill anything at the destination
 	KillBox (other);
 
@@ -2434,6 +2437,7 @@ void SP_misc_teleporter (edict_t *ent)
 	gi.setmodel (ent, "models/objects/dmspot/tris.md2");
 	ent->s.skinnum = 1;
 	ent->s.effects = EF_TELEPORTER;
+	ent->s.renderfx2 |= RF2_NOSHADOW;
 	ent->s.sound = gi.soundindex ("world/amb10.wav");
 	ent->solid = SOLID_BBOX;
 
@@ -2450,7 +2454,6 @@ void SP_misc_teleporter (edict_t *ent)
 	VectorSet (trig->mins, -8, -8, 8);
 	VectorSet (trig->maxs, 8, 8, 24);
 	gi.linkentity (trig);
-	
 }
 
 /*QUAKED misc_teleporter_dest (1 0 0) (-32 -32 -24) (32 32 -16)
@@ -2460,6 +2463,7 @@ void SP_misc_teleporter_dest (edict_t *ent)
 {
 	gi.setmodel (ent, "models/objects/dmspot/tris.md2");
 	ent->s.skinnum = 0;
+	ent->s.renderfx2 |= RF2_NOSHADOW;
 	ent->solid = SOLID_BBOX;
 //	ent->s.effects |= EF_FLIES;
 	VectorSet (ent->mins, -32, -32, -24);
@@ -2836,9 +2840,6 @@ void Use_Alarm (edict_t *ent, edict_t *other, edict_t *activator)
 		ent->moveinfo.state = ALARM_ON;
 		ent->wait = ent->count;
 		ent->delay = ent->speed;
-
-		// Ridah, do some special handling here
-		EP_EventScript( activator, "alarm" );
 	}
 	else
 	{
@@ -3159,477 +3160,6 @@ void SP_misc_barry_cube_mdx (edict_t *self)
 
 }
 
-
-/*QUAKED path_attractor (.4 .3 .8) (-16 -16 -24) (16 16 48)
-When this is placed on the map it will attract actors by name
-from the episodic ai routines
-
-default delay is 10 sec.  
-*/
-
-void SP_path_attractor (edict_t *self)
-{
-	self->movetype = MOVETYPE_NONE;
-	self->solid = SOLID_NOT;
-	VectorSet (self->mins, -16, -16, -24);
-	VectorSet (self->maxs,  16,  16,  48);
-	
-	if (!self->delay)
-		self->delay = 10;
-
-	AI_Ent_droptofloor( self );
-}
-
-
-// JOSEPH 16-DEC-98
-
-/*QUAKED misc_cut_scene (0 0 1) (-16 -16 -16) (16 16 16)
-*/
-
-/*void CutSceneThink (edict_t *ent)
-{
-	 ent->nextthink = level.time + 0.1;
-
-	 //if (level.time > (ent->nextthink + ent->wait))
-	 // JOSEPH 7-DEC-98
-	 if (!ent->wait--)
-	   EndCutScene (ent);
-}
-
-void CutSceneThinkEnd (edict_t *ent)
-{
-	EndCutScene (ent);
-}
-
-void CutSceneThinkStart (edict_t *ent)
-{
-	if (!ent->count)
-		return;
-	
-	ent->count--;
-
-	BeginCutScene (ent);
-
-	// JOSEPH 7-DEC-98
-	ent->think = CutSceneThink;
-	ent->nextthink = level.time + 0.1;
-}
-
-void Touch_CutScene (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *surf)
-{
-	ent->think = CutSceneThinkStart;
-	ent->nextthink = level.time + 0.1;
-}
-
-void SP_misc_cut_scene (edict_t *self)
-{
-	
-	VectorSet (self->mins, -16, -16, -16);
-	VectorSet (self->maxs,  16,  16,  16);
-
-	self->solid = SOLID_TRIGGER;
-	self->touch = Touch_CutScene;
-	self->svflags |= SVF_NOCLIENT;
-
-	gi.linkentity (self);
-	
-	if (!self->wait)
-		self->wait = 60;
-
-	self->wait=10; // just for now
-
-	self->count = 1;
-
-}*/
-
-// JOSEPH 25-FEB-99
-/*QUAKED misc_cutscene_trigger (0 0 1) ?
-
-Targets a misc_cutscene_camera
-
-  target - camera to target
-  debugprint - set to 1 to print out camera end position and angles	
-  duration - fade in time.	  
-*/
-// END JOSEPH
-
-// JOSEPH 19-MAR-99-B
-/*QUAKED misc_cutscene_camera (0 0 1) (-16 -16 -16) (16 16 16)
-  
-Camera to be targeted from a misc_cutscene_trigger		
-
-  targetname - camera target ID 
-  
-  cameraorigin - X Y Z camera start position
-
-  cameraangle - X Y Z start angles
-
-  rotate - X Y Z rotational velocity during cut scene
-
-  cameravel - [forward] [right] [up] speed to move from initial angle.	
-
-  cameravelrel - [forward] [right] [up] speed to move relative to current frame angle.	
-
-  wait - cut scene length in seconds (default 5)	
-
-  target - next camera to target.	
-
-  target2 - [NOT WORKING!!] camera angle points to this entity (overides other angle commands)	  
-
-  deadticks - fov for this camera;
-
-  duration - fade out time.
-  
-  reactdelay - time into camera to start fading out   
-*/
-// END JOSEPH
-void CutSceneThink (edict_t *ent)
-{
-    if (!ent->wait--)
-	{
-		{
-			edict_t	*e;
-			int		i;
-			int     found = 0;
-
-			// Print end position if required
-			if (ent->debugprint)
-			{
-				// JOSEPH 24-FEB-99
-				vec3_t neworigin;
-				
-				VectorCopy(ent->target_ent->s.origin, neworigin);
-				neworigin[2] += 40;
-				gi.dprintf("Camera \"%s\" end position %s\n", ent->target_ent->targetname, vtos(neworigin));            
-				gi.dprintf("Camera \"%s\" end angles %s\n", ent->target_ent->targetname, vtos(ent->target_ent->s.angles)); 
-				// END JOSEPH
-			}
-			
-			// Restore camera start position and angle
-			VectorCopy(ent->target_ent->save_avel, ent->target_ent->s.angles);
-	        VectorCopy(ent->target_ent->savecameraorigin, ent->target_ent->s.origin);
-			
-			// No more cameras
-			if (!ent->target_ent->target)
-				EndCutScene (ent->target_ent);			
-
-			// Find next target entity camera
-			if (ent->target_ent->target)
-			{
-				for (i=1, e=g_edicts+i ; i < globals.num_edicts ; i++,e++)
-				{
-					if ((e->targetname) && (!strcmp(e->targetname, ent->target_ent->target)))
-					{
-						ent->target_ent = e;
-						found = 1;
-						break;	
-					}
-				}	
-			}
-
-			// Next camera
-			if (found)
-			{
-				// See if a target2 can be found
-				if (ent->target_ent->target2)
-				{
-					for (i=1, e=g_edicts+i ; i < globals.num_edicts ; i++,e++)
-					{
-						if ((e->targetname) && (!strcmp(e->targetname, ent->target_ent->target2)))
-						{
-							ent->target_ent->target2_ent = e;
-							break;	
-						}
-					}	
-				}
-				
-				ent->wait = ent->target_ent->wait*10.0;
-				if (!ent->wait)
-					ent->wait = 5.0*10.0;
-				NewCutSceneCamera (ent->target_ent);			
-				ent->nextthink = level.time + 0.1;
-
-				// Ridah, Camera accel/decel
-				ent->target_ent->timestamp = level.time;
-				ent->target_ent->speed = 0;
-
-				// Ridah, play a sound if there is one
-				if (ent->target_ent->name)
-				{
-					edict_t *talkent;
-
-					if (!ent->target_ent->sight_target)
-					{
-						//gi.dprintf( "Warning: cutsecene camera has voice sound without a \"sight_target\" (speaking charecter's name)\n" );
-						gi.positioned_sound( ent->target_ent->s.origin, ent->target_ent, CHAN_AUTO, gi.soundindex( ent->target_ent->name ), 1.0, ATTN_NONE, 0);
-					}
-					else
-					{
-						talkent = EP_GetCharacterByName( ent->target_ent->sight_target );
-						gi.sound( talkent, CHAN_VOICE, gi.soundindex( ent->target_ent->name ), 1.0, 1, 0);
-					}
-
-				}
-
-				// Ridah, scripting
-				if (ent->target_ent->scriptname)
-				{
-					EP_EventScript( &g_edicts[1], ent->target_ent->scriptname );
-				}
-				
-				return;
-			}
-		}
-
-
-		// Ridah, scripting
-		if (ent->scriptname)
-		{
-			EP_EventScript( &g_edicts[1], ent->scriptname );
-		}
-
-		// No more cameras or target camera not found
-		ent->think = 0;
-		EndCutScene (ent->target_ent);
-	}	
-	else
-	{
-		// Process camera frame
-		AdjustCutSceneCamera(ent->target_ent);
-	    ent->nextthink = level.time + 0.1;
-	}	
-}
-
-
-void CutSceneThinkStart (edict_t *ent)
-{
-	edict_t	*e;
-	int		i;
-	
-	if (!ent->count)
-		return;
-	
-	// JOSEPH 19-MAR-99-B
-	if (ent->duration)
-	{
-		level.inversefade = 0;
-		level.totalfade = ent->duration;
-		level.fadeendtime = level.time + level.totalfade;
-	}	
-	// END JOSEPH	
-
-	ent->count--;
-
-	// Find target entity
-	ent->target_ent = 0;
-
-	if (ent->target)
-	{
-		for (i=1, e=g_edicts+i ; i < globals.num_edicts ; i++,e++)
-		{
-			if ((e->targetname) && (!strcmp(e->targetname, ent->target)))
-			{
-				ent->target_ent = e;
-				break;	
-			}
-		}	
-	}
-
-	if (!ent->target_ent)
-		return;
-
-	// See if a target2 can be found
-	if (ent->target_ent->target2)
-	{
-		for (i=1, e=g_edicts+i ; i < globals.num_edicts ; i++,e++)
-		{
-			if ((e->targetname) && (!strcmp(e->targetname, ent->target_ent->target2)))
-			{
-				ent->target_ent->target2_ent = e;
-				break;	
-			}
-		}	
-	}
-
-	// Ridah, Camera accel/decel
-	ent->target_ent->timestamp = level.time;
-	ent->target_ent->speed = 0;
-
-	// Ridah, play a sound if there is one
-	if (ent->target_ent->name)
-	{
-		edict_t *talkent;
-
-		if (!ent->target_ent->sight_target)
-		{
-			//gi.dprintf( "Warning: cutsecene camera has voice sound without a \"sight_target\" (speaking charecter's name)\n" );
-			gi.positioned_sound( ent->target_ent->s.origin, ent->target_ent, CHAN_AUTO, gi.soundindex( ent->target_ent->name ), 1.0, ATTN_NONE, 0);
-		}
-		else
-		{
-			talkent = EP_GetCharacterByName( ent->target_ent->sight_target );
-			gi.sound( talkent, CHAN_VOICE, gi.soundindex( ent->target_ent->name ), 1.0, 1, 0);
-		}
-
-	}
-
-	// Ridah, scripting
-	if (ent->target_ent->scriptname)
-	{
-		EP_EventScript( &g_edicts[1], ent->target_ent->scriptname );
-	}
-
-	ent->wait = ent->target_ent->wait*10.0;
-	
-	if (!ent->wait)
-		ent->wait = 5.0*5.0;
-	
-	BeginCutScene (ent->target_ent);
-	
-	ent->think = CutSceneThink;
-	ent->nextthink = level.time + 0.1;
-}
-
-void Touch_CutScene (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *surf)
-{
-	CutSceneThinkStart(ent);
-}
-
-// JOSEPH 17-MAR-99-B
-void Use_CutScene (edict_t *self, edict_t *other, edict_t *activator)
-{
-	CutSceneThinkStart(self);
-}
-// END JOSEPH
-
-// OLD
-void SP_misc_cut_scene (edict_t *self)
-{
-
-}
-
-// JOSEPH 2-MAR-99
-void PrecacheCutStuff (char* s)
-{
-	char	*start;
-	char	data[MAX_QPATH];
-	int		len;
-
-	if (!s || !s[0])
-		return;
-
-	// parse the space seperated precache string
-	while (*s)
-	{
-		start = s;
-		while (*s && *s != ' ')
-			s++;
-
-		len = s-start;
-		if (len >= MAX_QPATH || len < 5)
-			gi.error ("Bad precache string");
-		memcpy (data, start, len);
-		data[len] = 0;
-		if (*s)
-			s++;
-
-		// determine type based on extension
-		if (!strcmp(data+len-3, "md2"))
-			gi.modelindex (data);
-		else if (!strcmp (data+len-3, "mdx"))
-			gi.modelindex (data);
-		else if (!strcmp(data+len-3, "wav"))
-			gi.soundindex (data);
-		if (!strcmp(data+len-3, "pcx"))
-			gi.imageindex (data);
-	}
-}
-
-// JOSEPH 19-MAR-99-B
-void SP_misc_cutscene_trigger (edict_t *self)
-{
-	self->solid = SOLID_TRIGGER;
-	gi.setmodel (self, self->model);
-    self->svflags |= SVF_NOCLIENT;
-
-	if (self->targetname)
-	{	
-		self->use = Use_CutScene;
-	}
-	else
-	{
-	self->touch = Touch_CutScene;
-	}
-
-	if (self->duration)
-	{
-		level.inversefade = 0;
-		level.totalfade = 60.0;
-		level.fadeendtime = level.time + level.totalfade;
-	}	
-	
-	gi.linkentity (self);
-	self->count = 1;
-    
-	PrecacheCutStuff (self->name);
-}
-// END JOSEPH
-
-// JOSEPH 19-MAR-99-B
-/*QUAKED misc_use_cutscene (.5 .5 .5) (-8 -8 -8) (8 8 8)
-This fixed size trigger targets a misc_cutscene_camera
-
-  target - camera to target
-  debugprint - set to 1 to print out camera end position and angles	
-  duration - fade in time.	  
-*/
-void SP_misc_use_cutscene (edict_t *self)
-{
-	self->use = Use_CutScene;
-	
-	if (self->duration)
-	{
-		level.inversefade = 0;
-		level.totalfade = 60.0;
-		level.fadeendtime = level.time + level.totalfade;
-	}	
-	
-	self->count = 1;
-    
-	PrecacheCutStuff (self->name);
-}
-// END JOSEPH
-
-void SP_misc_cutscene_camera (edict_t *self)
-{
-	VectorSet (self->mins, -16, -16, -16);
-	VectorSet (self->maxs,  16,  16,  16);
-
-	VectorClear(self->s.angles);
-
-	if ((self->cameraorigin[0] != 0) || (self->cameraorigin[1] != 0) || (self->cameraorigin[2] != 0))
-	{
-		VectorCopy(self->cameraorigin, self->s.origin);
-		self->s.origin[2] -= 40;
-	}
-	else
-	{
-		self->s.origin[0] += 8;
-		self->s.origin[1] += 8;
-		self->s.origin[2] += 8;
-	}
-
-	self->solid = SOLID_NOT;
-	self->svflags |= SVF_NOCLIENT;
-
-	gi.linkentity (self);
-
-	if (!self->deadticks)
-		self->deadticks = 90;
-
-	PrecacheCutStuff (self->name);
-}
-// END JOSEPH
 
 /*QUAKED sfx_beacon (0 0 1) (-16 -16 -16) (16 16 16)
 */

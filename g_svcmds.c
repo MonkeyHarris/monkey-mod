@@ -110,9 +110,11 @@ qboolean SV_FilterPacket (char *from)
 
 	i = 0;
 	p = from;
-	while (*p && i < 4) {
+	while (*p && i < 4)
+	{
 		m[i] = 0;
-		while (*p >= '0' && *p <= '9') {
+		while (*p >= '0' && *p <= '9')
+		{
 			m[i] = m[i]*10 + (*p - '0');
 			p++;
 		}
@@ -140,7 +142,8 @@ void SVCmd_AddIP_f (void)
 {
 	int		i;
 	
-	if (gi.argc() < 3) {
+	if (gi.argc() < 3)
+	{
 		gi.cprintf(NULL, PRINT_HIGH, "Usage:  addip <ip-mask>\n");
 		return;
 	}
@@ -172,7 +175,8 @@ void SVCmd_RemoveIP_f (void)
 	ipfilter_t	f;
 	int			i, j;
 
-	if (gi.argc() < 3) {
+	if (gi.argc() < 3)
+	{
 		gi.cprintf(NULL, PRINT_HIGH, "Usage:  sv removeip <ip-mask>\n");
 		return;
 	}
@@ -227,9 +231,9 @@ void SVCmd_WriteIP_f (void)
 	game = gi.cvar("game", "", 0);
 
 	if (!*game->string)
-		strcpy (name, "main"DIR_SLASH"listip.cfg");
+		strcpy (name, "main/listip.cfg");
 	else
-		sprintf (name, "%s"DIR_SLASH"listip.cfg", game->string);
+		sprintf (name, "%s/listip.cfg", game->string);
 
 	gi.cprintf (NULL, PRINT_HIGH, "Writing %s.\n", name);
 
@@ -249,39 +253,6 @@ void SVCmd_WriteIP_f (void)
 	}
 	
 	fclose (f);
-}
-
-
-void SVCmd_Mute_f (void)
-{
-    
-       int		i;
-
-       i = atoi (gi.argv(2));
-             
-       if ((g_edicts[i+1].client==NULL) || (!gi.argv(2) || !*gi.argv(2)) || (i<0 || (i+1)>maxclients->value))
-       {
-           gi.cprintf (NULL, PRINT_HIGH,"Unable to find client id match\n");
-           gi.cprintf (NULL, PRINT_HIGH,"Usage: mute <client id>\nNOTE: client id can be seen by using the 'status' command\n");
-           return; 
-       }  
-
-       if(g_edicts[i+1].inuse)
-       {
-           if(g_edicts[i+1].client->pers.mute == 0)
-           {
-               gi.cprintf(NULL,PRINT_HIGH,"Enabled Mute On: %s\n",g_edicts[i+1].client->pers.netname);
-               gi.cprintf(&g_edicts[i+1], PRINT_HIGH, "Admin has 'muted' you\n");
-               g_edicts[i+1].client->pers.mute = 1; 
-           }
-           else
-           {
-               gi.cprintf(NULL,PRINT_HIGH,"Disabled Mute On: %s\n",g_edicts[i+1].client->pers.netname);
-               gi.cprintf(&g_edicts[i+1], PRINT_HIGH, "Admin has 'unmuted' you\n");
-               g_edicts[i+1].client->pers.mute = 0; 
-           }
-       }
-     
 }
 
 /*
@@ -308,14 +279,16 @@ void	ServerCommand (void)
 		SVCmd_ListIP_f ();
 	else if (Q_stricmp (cmd, "writeip") == 0)
 		SVCmd_WriteIP_f ();
-    else if (!Q_stricmp(cmd,"banip")) 
-        Cmd_BanDicks_f(NULL, 1);
-    else if (!Q_stricmp(cmd,"listdicks")) 
-        Cmd_ListDicks_f(NULL);
-    else if (!Q_stricmp(cmd,"banname")) 
-        Cmd_BanDicks_f(NULL, 0);
-    else if (!Q_stricmp(cmd,"mute")) 
-        SVCmd_Mute_f();
+	else if (!Q_stricmp(cmd,"banip")) 
+		Cmd_BanDicks_f(NULL, 1);
+	else if (!Q_stricmp(cmd,"listbans")) 
+		Cmd_ListBans_f(NULL);
+	else if (!Q_stricmp(cmd,"banname")) 
+		Cmd_BanDicks_f(NULL, 0);
+	else if (!Q_stricmp(cmd,"mute")) 
+		Cmd_Mute_f(NULL, gi.argv(2));
+	else if (!Q_stricmp(cmd,"resetserver"))
+		ResetServer(false);
 	else
 		gi.cprintf (NULL, PRINT_HIGH, "Unknown server command \"%s\"\n", cmd);
 }

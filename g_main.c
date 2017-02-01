@@ -1,7 +1,5 @@
 
 #include "g_local.h"
-//#include "stdlog.h"	//	Standard Logging
-//#include "gslog.h"	//	Standard Logging
 
 #include "voice_bitch.h"
 #include "voice_punk.h"
@@ -20,18 +18,12 @@ int meansOfDeath;
 
 edict_t		*g_edicts;
 
-cast_memory_t	*g_cast_memory;
-cast_group_t	*g_cast_groups;
-
 int		num_object_bounds=0;
 object_bounds_t	*g_objbnds[MAX_OBJECT_BOUNDS];
 
-cvar_t	*deathmatch;
+//cvar_t	*deathmatch;
 
-// RAFAEL
-// cvar_t	*marines;
-
-cvar_t	*coop;
+//cvar_t	*coop;
 cvar_t	*dmflags;
 cvar_t	*skill;
 cvar_t	*fraglimit;
@@ -42,8 +34,6 @@ cvar_t	*maxclients;
 cvar_t	*maxentities;
 cvar_t	*g_select_empty;
 cvar_t	*dedicated;
-
-cvar_t	*maxrate;
 
 cvar_t	*filterban;
 
@@ -77,7 +67,6 @@ cvar_t  *idle_client;
 
 // Ridah, new cvar's
 cvar_t	*developer;
-cvar_t	*ai_debug_memory;
 
 cvar_t	*g_vehicle_test;
 
@@ -85,38 +74,28 @@ cvar_t	*dm_locational_damage;
 
 cvar_t	*showlights;
 
-cvar_t	*r_directional_lighting;
-
-cvar_t	*cl_captions;
-
-cvar_t	*sv_runscale;	// 2.0 = double speed, 0.0 = zero movement
-
-cvar_t	*burn_enabled;
-cvar_t	*burn_size;
-cvar_t	*burn_intensity;
-cvar_t	*burn_r;
-cvar_t	*burn_g;
-cvar_t	*burn_b;
-
 cvar_t	*timescale;
 
 cvar_t	*teamplay;
 cvar_t	*g_cashspawndelay;
-
-cvar_t	*cl_parental_lock;
-cvar_t	*cl_parental_override;
 
 cvar_t	*dm_realmode;
 
 cvar_t	*g_mapcycle_file;
 // Ridah, done.
 
-//Snap
-int		uptime_days,uptime_hours,uptime_minutes,uptime_seconds;
-cvar_t	*days;
-cvar_t	*hours;
-cvar_t	*minutes;
-cvar_t	*seconds;
+cvar_t	*antilag;
+cvar_t	*props;
+
+cvar_t	*bonus;
+
+qboolean	kpded2;
+int		starttime;
+
+void (*_GeoIP_delete)(void* gi);
+const char *(*_GeoIP_country_name_by_addr)(void* gi, const char *addr);
+void *geoip = NULL;
+int disable_geoip;
 
 void SpawnEntities (char *mapname, char *entities, char *spawnpoint);
 void ClientThink (edict_t *ent, usercmd_t *cmd);
@@ -132,13 +111,6 @@ void WriteLevel (char *filename);
 void ReadLevel (char *filename);
 void InitGame (void);
 void G_RunFrame (void);
-void HideWeapon (edict_t *ent);
-
-unsigned char		*lpbuf[0xFFFF];
-int					num_lpbuf;
-
-// JOSEPH 23-OCT-98
-void Killed (edict_t *targ, edict_t *inflictor, edict_t *attacker, int damage, vec3_t point, int mdx_part, int mdx_subobject);
 
 //===================================================================
 
@@ -148,76 +120,44 @@ void ShutdownGame (void)
 {
 	int			i;
 	edict_t		*ent;
-	char buf[1024];
-	char buf1[16];
+	char buf[MAX_INFO_STRING];
 
-	buf[0]=0;
-	for (i=0 ; i<maxclients->value ; i++) {
+	buf[0] = 0;
+	for (i=0 ; i<maxclients->value ; i++)
+	{
 		ent = g_edicts + 1 + i;
-		if (!ent->inuse) continue;
-		if (ent->client->pers.rconx[0])
-			Info_SetValueForKey(buf,ent->client->pers.ip,ent->client->pers.rconx);
+		if (ent->inuse && ent->client->pers.rconx[0])
+			Info_SetValueForKey(buf, ent->client->pers.ip, ent->client->pers.rconx);
 	}
-	gi.cvar_set("rconx",buf);
+	gi.cvar_set("rconx", buf);
 
-	if (keep_admin_status) {
-		for (i=0 ; i<maxclients->value ; i++) {
-			ent = g_edicts + 1 + i;
-			if (!ent->inuse) continue;
-			if (ent->client->pers.admin>NOT_ADMIN) {
-				gi.cvar_set("modadmin",ent->client->pers.ip);
-                if(ent->client->pers.admin==ELECTED)
-                    gi.cvar_set("admintype", "1");
-                else if(ent->client->pers.admin==ADMIN)
-                    gi.cvar_set("admintype", "2");
-				break;
-			}
+	if (keep_admin_status)
+	{
+		buf[0] = 0;
+		ent = GetAdmin();
+		if (ent)
+		{
+			Info_SetValueForKey(buf, "ip", ent->client->pers.ip);
+			Info_SetValueForKey(buf, "type", ent->client->pers.admin == ADMIN ? "2" : "1");
 		}
-		if (i==maxclients->value)
-        {
-			gi.cvar_set("modadmin","");
-            gi.cvar_set("admintype","");
-        }
+		gi.cvar_set("modadmin", buf);
 	}
 	
-	sprintf(buf1,"%d",uptime_days);
-	gi.cvar_set("days",buf1);
-	sprintf(buf1,"%d",uptime_hours);
-	gi.cvar_set("hours",buf1);
-	sprintf(buf1,"%d",uptime_minutes);
-	gi.cvar_set("minutes",buf1);
-	sprintf(buf1,"%d",uptime_seconds);
-	gi.cvar_set("seconds",buf1);
-
 	gi.dprintf ("==== ShutdownGame ====\n");
-
-//	sl_GameEnd( &gi, level );	// Standard Logging
 
 // BEGIN:	Xatrix/Ridah/Navigator/21-mar-1998
 	NAV_PurgeActiveNodes (level.node_data);	
 // END:		Xatrix/Ridah/Navigator/21-mar-1998
-
-	// Ridah, clear the lightpaint buffers
-	if (num_lpbuf > 0)
-	{
-		int i;
-
-		for (i=0; i<num_lpbuf; i++)
-			free( lpbuf[i] );
-	}
 
 	gi.FreeTags (TAG_LEVEL);
 	gi.FreeTags (TAG_GAME);
 
 	gi.ClearObjectBoundsCached();	// make sure we wipe the cached list
 
+	if (geoip)
 	{
-		extern void *geoip;
-		if (geoip) {
-			extern void (*_GeoIP_delete)(void* gi);
-			_GeoIP_delete(geoip);
-			geoip=0;
-		}
+		_GeoIP_delete(geoip);
+		geoip = NULL;
 	}
 }
 
@@ -244,6 +184,9 @@ Returns a pointer to the structure with all entry points
 and global variables
 =================
 */
+#if __linux__
+__attribute__((visibility("default")))
+#endif
 game_export_t *GetGameAPI (game_import_t *import)
 {
 	gi = *import;
@@ -275,6 +218,9 @@ game_export_t *GetGameAPI (game_import_t *import)
 	globals.GetObjectBoundsPointer = GetObjectBoundsPointer;
 
 	globals.GetNumJuniors = GetNumJuniors;
+
+	// check if the server is kpded2
+	kpded2 = !strncmp(gi.cvar("version", "", 0)->string, "kpded", 5);
 
 	return &globals;
 }
@@ -335,105 +281,26 @@ void ClientEndServerFrames (void)
 /*
 =================
 MapCycleNext
-
-  Uses maps.lst and teammaps.lst to cycle the maps during deathmatch
 =================
 */
 char *MapCycleNext( char *map )
 {
-	char	*basevars[] = {"basedir", "cddir", NULL};	// consol variables that point to possible file locations
-	cvar_t	*game_dir, *base_dir;
-	char	filename[MAX_QPATH], dir[MAX_QPATH];
-	FILE	*f;
 	static char	nextmap[MAX_QPATH];
-	char	firstmap[MAX_QPATH];
-	char	travmap[MAX_QPATH];
-	qboolean matched = false;
 	int		i;
-	char	ch;
-	qboolean eof = false;
 
-	game_dir = gi.cvar("game", "", 0);
+	if (!num_maps) return NULL;
 
-	// dir, eg: .\gamedir\routes
-	for (i=0; basevars[i]; i++)
+	for (i=0; i<num_maps; i++)
 	{
-		base_dir = gi.cvar(basevars[i], ".", 0);
-
-		strcpy( dir, base_dir->string);
-
-		if (dir[strlen(dir)-1] != DIR_SLASH[0])
-			strcat( dir, DIR_SLASH);
-
-		if (strlen(game_dir->string) == 0)
-			strcat( dir, "main");
-		else
-			strcat( dir, game_dir->string);
-
-		// filename, eg: .\gamedir\maps.lst
-		strcpy( filename, dir);
-		strcat( filename, DIR_SLASH);
-		if (g_mapcycle_file->string && strlen(g_mapcycle_file->string) > 0)
-			strcat( filename, g_mapcycle_file->string);
-		else if (!teamplay->value)
-			strcat( filename, "maps.lst");
-		else
-			strcat( filename, "teammaps.lst");
-
-		// try and open the file for reading
-		f = fopen ( filename, "rb");
-		if (f)
-			break;	// we have a valid file
-	}
-
-	if (!f)	// no valid file found
-		return NULL;
-
-	// read in the first map
-	fscanf( f, "%s", firstmap );
-	strcpy( travmap, firstmap );
-	ch = 0;
-	while (ch!='\n' && !feof(f))
-		fscanf(f, "%c", &ch);
-
-	do
-	{
-		eof = feof(f);
-
-		if (!Q_stricmp( travmap, level.mapname ))
+		if (!Q_stricmp(maplist[i], level.mapname))
 		{
-			matched = true;
-		}
-
-		if (!eof)
-		{
-			fscanf( f, "%s", travmap );
-			ch = 0;
-			while (ch!='\n' && !feof(f))
-				fscanf(f, "%c", &ch);
-		}
-
-		if (matched)
-		{
-			if (strcmp(travmap, level.mapname) != 0 && strlen(travmap) > 1)
-			{	// take this map
-				strcpy( nextmap, travmap );
-			}
-			else
-			{	// use the firstmap
-				strcpy( nextmap, firstmap );
-			}
-
-			fclose(f);
+			if (++i == num_maps) i = 0;
+			strcpy(nextmap, maplist[i]);
 			return nextmap;
 		}
 	}
-	while (!eof);
-
-	fclose(f);
-
-	// no match, so return nothing
-	return NULL;
+	strcpy(nextmap, maplist[default_random_map ? rand() % num_maps : 0]);
+	return nextmap;
 }
 
 /*
@@ -446,10 +313,7 @@ The timelimit or fraglimit has been exceeded
 void EndDMLevel (void)
 {
 	edict_t		*ent;
-	char		*nextmap, changenext[MAX_QPATH];
-	int i;
-
-//	gi.cvar_set("password",default_password);
+	char		*nextmap;
 
 	// stay on same level flag
 	if ((int)dmflags->value & DF_SAME_LEVEL)
@@ -461,13 +325,22 @@ void EndDMLevel (void)
 		goto done;
 	}
 
+	level.startframe = level.framenum;
+	if (allow_map_voting)
+	{
+		level.modeset = ENDGAMEVOTE;
+		ent = NULL;
+		goto done;
+	}
+	level.modeset = ENDGAME;
+
 	if (nextmap = MapCycleNext( level.mapname ))
 	{
 		ent = G_Spawn ();
 		ent->classname = "target_changelevel";
 		ent->map = nextmap;
-//		gi.bprintf (PRINT_HIGH, "Next map will be: %s.\n", ent->map);
-	
+//		gi.bprintf (PRINT_HIGH, "Next map will be: %s\n", ent->map);
+
 		goto done;
 	}
 
@@ -490,25 +363,7 @@ void EndDMLevel (void)
 	}
 
 done:
-
-	if (ent && ent->map)
-		gi.dprintf("DM changelevel: %s (time: %i secs)\n", ent->map, (int)level.time );
-
-	//hack to fix bug
-	strcpy(changenext, ent->map);
-
-	for_each_player(ent,i) 
-	{
-		HideWeapon(ent);
-		if (ent->client->flashlight) ent->client->flashlight = false;
-	}
-
-	// Ridah, play a random music clip
-	gi.WriteByte( svc_stufftext );
-	gi.WriteString( va("play world/cypress%i.wav", 2+(rand()%4)) );
-	gi.multicast (vec3_origin, MULTICAST_ALL);
-
-	BeginIntermission (ent, changenext);
+	BeginIntermission (ent);
 }
 
 /*
@@ -520,99 +375,64 @@ void CheckDMRules (void)
 {
 	int			i;
 	gclient_t	*cl;
-	int		count=0;
-	edict_t	*doot;
 
 	if (level.intermissiontime)
 		return;
 
-	if (!deathmatch->value)
-		return;
-
-	for_each_player (doot,i)
-		count++;
-	if ((count == 0) && (level.framenum > 12000))
-		ResetServer ();
-
-	if (timelimit->value)
+	if (level.framenum - level.lastactive == 600)
 	{
-		if (level.framenum > (level.startframe + ((int)timelimit->value) * 600 - 1))
-		{
-			gi.bprintf (PRINT_HIGH, "Timelimit hit.\n");
-			if (count == 0)
-				ResetServer();
-			else
-				if (!allow_map_voting)
-					EndDMLevel ();
-				else
-					SetupMapVote();
-			return;
-		}
+		// the server has been idle for a minute, reset to default settings if needed
+		if (ResetServer(true)) return;
 	}
 
-	if (fraglimit->value)
+	if ((int)teamplay->value == 1)
 	{
-		if ((int)teamplay->value==4){
-			if (team_cash[1]>=(int)fraglimit->value || team_cash[2]>=(int)fraglimit->value) {
-				gi.bprintf (PRINT_HIGH, "Fraglimit hit.\n");
-				if (!allow_map_voting)
-					EndDMLevel ();
-				else
-					SetupMapVote();
+		if ((int)cashlimit->value)
+		{
+			if ((team_cash[1] >= (int)cashlimit->value) || (team_cash[2] >= (int)cashlimit->value))
+			{
+				gi.bprintf (PRINT_HIGH, "Cashlimit hit.\n");
+				EndDMLevel ();
 				return;
 			}
-		} else {
-			for (i=0 ; i<maxclients->value ; i++) {
+		}
+	}
+	else if ((int)fraglimit->value)
+	{
+		if (teamplay->value)
+		{
+			if (team_cash[1] >= (int)fraglimit->value || team_cash[2] >= (int)fraglimit->value)
+			{
+				gi.bprintf (PRINT_HIGH, "Fraglimit hit.\n");
+				EndDMLevel ();
+				return;
+			}
+		}
+		else
+		{
+			for (i=0 ; i<maxclients->value ; i++)
+			{
 				cl = game.clients + i;
 				if (!g_edicts[i+1].inuse)
 					continue;
 
-				if (cl->resp.score >= fraglimit->value) {
+				if (cl->resp.score >= (int)fraglimit->value)
+				{
 					gi.bprintf (PRINT_HIGH, "Fraglimit hit.\n");
-					if (!allow_map_voting)
-						EndDMLevel ();
-					else
-						SetupMapVote();
+					EndDMLevel ();
 					return;
 				}
 			}
 		}
 	}
 
-	if (cashlimit->value)
+	if ((int)timelimit->value)
 	{
-		if ((team_cash[1] >= cashlimit->value) || (team_cash[2] >= cashlimit->value))
+		if (level.framenum >= (level.startframe + ((int)timelimit->value) * 600))
 		{
-			gi.bprintf (PRINT_HIGH, "Cashlimit hit.\n");
-				if (!allow_map_voting)
-					EndDMLevel ();
-				else
-					SetupMapVote();
-			return;
+			gi.bprintf (PRINT_HIGH, "Timelimit hit.\n");
+			EndDMLevel ();
 		}
-	}
-}
-
-/*=====================
-Hide Weapon
-======================*/
-void HideWeapon(edict_t *ent)
-{
-
-	gclient_t *cl;
-
-	cl = ent->client;
-	if (!cl->pers.holsteredweapon)
-	{
-		if (!cl->pers.weapon)
-			return;
-
-		cl->pers.holsteredweapon = cl->pers.weapon;
-		cl->newweapon = NULL;
-		cl->weaponstate = WEAPON_DROPPING;
-
-		if (ent->s.renderfx2 & RF2_FLAMETHROWER)
-			ent->s.renderfx2 &= ~RF2_FLAMETHROWER;
 	}
 }
 
@@ -627,38 +447,12 @@ void ExitLevel (void)
 	int		i;
 	edict_t	*ent;
 	char	command [256];
-	char buf[1024];
+	int		count = 0;
 
-	level.player_num=0;
-
-	buf[0]=0;
-	for (i=0 ; i<maxclients->value ; i++) {
-		ent = g_edicts + 1 + i;
-		if (!ent->inuse) continue;
-		if (ent->client->pers.rconx[0])
-			Info_SetValueForKey(buf,ent->client->pers.ip,ent->client->pers.rconx);
-	}
-	gi.cvar_set("rconx",buf);
-
-	if (keep_admin_status) {
-		for (i=0 ; i<maxclients->value ; i++) {
-			ent = g_edicts + 1 + i;
-			if (!ent->inuse) continue;
-			if (ent->client->pers.admin>NOT_ADMIN) {
-				gi.cvar_set("modadmin",ent->client->pers.ip);
-                if(ent->client->pers.admin==ELECTED)
-                    gi.cvar_set("admintype", "1");
-                else if(ent->client->pers.admin==ADMIN)
-                    gi.cvar_set("admintype", "2");
-				break;
-			}
-		}
-		if (i==maxclients->value)
-        {
-			gi.cvar_set("modadmin","");
-            gi.cvar_set("admintype","");
-        }
-	}
+	for_each_player (ent,i)
+		count++;
+	if (!count && ResetServer(true))
+		return; // server reset instead
 
 	Com_sprintf (command, sizeof(command), "gamemap \"%s\"\n", level.changemap);
 	gi.AddCommandString (command);
@@ -668,31 +462,7 @@ void ExitLevel (void)
 	ClientEndServerFrames ();
 
 // RAFAEL
-	level.cut_scene_time = 0;
 	level.speaktime = 0;
-	// JOSEPH 25-FEB-99
-	level.cut_scene_end_count = 0;
-    level.fadeendtime = 0;
-	level.totalfade = 0;
-	// END JOSEPH
-
-	// JOSEPH 13-JUN-99
-    level.helpchange = 0;
-	// END JOSEPH
-
-	if (level.bar_lvl)
-	{
-		extern void Cmd_HolsterBar_f (edict_t *ent);
-		edict_t *player;
-		
-		player = &g_edicts[1];
-		level.bar_lvl = false;
-		
-		Cmd_HolsterBar_f (player);
-	}
-		
-	// level.pawn_time = 0;
-	// level.pawn_exit = false;
 
 	// clear some things before going to next level
 	for (i=0 ; i<maxclients->value ; i++)
@@ -729,10 +499,24 @@ void G_RunFrame (void)
 {
 	int		i;
 	edict_t	*ent;
-	char buf2[32];
+
+	if (level.framenum == 50 && wait_for_players && !allow_map_voting && !level.lastactive)
+	{
+		level.lastactive = -1;
+		gi.dprintf("Waiting for players\n");
+		UpdateTime();
+		if (kpded2) // enable kpded2's idle mode for reduced CPU usage while waiting for players (automatically disabled when players join)
+			gi.cvar_forceset("g_idle", "1");
+	}
+
+	// skip frame processing if the server is waiting for players
+	if (level.lastactive < 0)
+		goto uptime;
 
 	level.framenum++;
 	level.time = level.framenum*FRAMETIME;
+
+	level.frameStartTime = Sys_Milliseconds();
 
 	// exit intermissions
 
@@ -741,22 +525,6 @@ void G_RunFrame (void)
 		ExitLevel ();
 		return;
 	}
-
-
-	// do character sighting/memory stuff
-	if ((maxclients->value > 1) && !(deathmatch->value))
-	{	// coop server, do more checking here
-
-		if (dedicated->value)
-			AI_UpdateCharacterMemories( 256 );
-
-	}
-
-
-	// Process Generic Combat AI layer
-
-	AI_ProcessCombat ();
-
 
 	//
 	// treat each object in turn
@@ -792,7 +560,7 @@ void G_RunFrame (void)
 				float	dist;
 
 				// Deathmatch flames done on client-side
-				if ((!deathmatch->value /*|| ent->onfiretime == 1*/) && (deathmatch->value || !ent->client))
+				if ((!deathmatch_value /*|| ent->onfiretime == 1*/) && (deathmatch_value || !ent->client))
 				{
 					VectorSubtract( g_edicts[1].s.origin, ent->s.origin, dir );
 					dist = VectorNormalize( dir );
@@ -812,7 +580,7 @@ void G_RunFrame (void)
 
 						VectorAdd( mdx_bbox[i]->s.origin, dir, org );
 
-						if (!deathmatch->value)
+						if (!deathmatch_value)
 						{
 							for (j=0; j<2; j++)
 							{
@@ -856,15 +624,10 @@ void G_RunFrame (void)
 					edict_t *trav=NULL;
 					float	damage=1;
 
-					if (!deathmatch->value)
-						damage;// *= 3;
-					else
-						damage;// *= 2;
-
 					T_Damage( ent, ent->onfireent, ent->onfireent, vec3_origin, ent->s.origin, vec3_origin, damage, 0, DAMAGE_NO_KNOCKBACK, MOD_FLAMETHROWER );
 
 					// make sure they are in the "catch_fire" motion
-					if (!deathmatch->value && (ent->health > 0) && ent->cast_info.catch_fire)
+					if (!deathmatch_value && (ent->health > 0) && ent->cast_info.catch_fire)
 					{
 						ent->cast_info.catch_fire( ent, ent->onfireent );
 					}
@@ -915,81 +678,6 @@ void G_RunFrame (void)
 			}
 		}
 
-		if (ent->svflags & SVF_MONSTER)
-		{
-//			float	alpha;
-
-			
-			// Blood trail
-			// JOSEPH 24-JAN-99
-			if ((!ent->deadflag) && (ent->health < ent->max_health) && (!(ent->svflags & SVF_PROP))/*&& ((ent->healtimer&3) == 2)*/)
-			// END JOSEPH
-			{
-				vec3_t	stop;
-				vec3_t	start;
-				trace_t	trace;
-					
-				VectorCopy(ent->s.origin, start);
-				start[0] += ((rand()&15)-8); 
-				start[1] += ((rand()&15)-8);	
-				VectorCopy(start, stop);
-				stop[2] -= 16*16;
-
-				trace = gi.trace (start, NULL, NULL, stop, ent, MASK_DEADSOLID);
-				if (trace.fraction < 1)
-				{
-					float	rnd;
-
-					rnd = (0.2 + 1.5*random());
-					SurfaceSpriteEffect(SFX_SPRITE_SURF_BLOOD1, (byte)(rnd * SFX_BLOOD_WIDTH), (byte)(rnd * SFX_BLOOD_HEIGHT),
-										trace.ent, trace.endpos, trace.plane.normal);
-				}
-			}
-			
-			// Heal thy self (healspeed -1 = no heal, healspeed 0 = 1, healspeed >1 = value)
-			if ((!ent->deadflag) && (ent->health < ent->max_health) && (ent->healspeed >= 0)
-					&&	(!ent->leader || ent->cast_group != 1 || (((int)timescale->value) == 1))	// Ridah, added this or they can set timescale = 100 and followers will restore full health in second
-					&&	(ent->healtimer++ > 30))
-			// END JOSEPH
-			{
-				int i, i2, baseskin;
-				
-				ent->healtimer = 0;
-				
-				if (!ent->healspeed)
-				  	ent->health += 1;
-				else
-					ent->health += ent->healspeed;
-				
-				if (ent->health > ent->max_health)
-					ent->health = ent->max_health;
-				
-				for (i = 0; i < MAX_MODEL_PARTS; i++)
-				{
-					for (i2 = 0; i2 < MAX_MODELPART_OBJECTS; i2++)
-					{
-						baseskin = ent->s.model_parts[i].baseskin;
-													
-						if (ent->s.model_parts[i].skinnum[i2] > baseskin)
-						{	
-							if (ent->health > (ent->max_health * 0.75))
-							{
-								ent->s.model_parts[i].skinnum[i2] = baseskin;
-							}
-							else if (ent->health > (ent->max_health * 0.5))
-							{
-								if (cl_parental_lock->value && !cl_parental_override->value)
-									ent->s.model_parts[i].skinnum[i2] = baseskin;
-								else
-									ent->s.model_parts[i].skinnum[i2] = baseskin + 1;
-							}
-						}
-					}
-				}
-			}
-		}
-		// END JOSEPH
-
 		// if the ground entity moved, make sure we are still on it
 		if ((ent->groundentity) && (ent->groundentity->linkcount != ent->groundentity_linkcount))
 		{
@@ -1023,15 +711,7 @@ void G_RunFrame (void)
 			}
 		}
 
-		// Ridah, update lights if using directional lighting
-		if (!(r_directional_lighting->value) && !deathmatch->value)
-		{
-			if (ent->s.renderfx2 & RF2_DIR_LIGHTS)
-			{
-				VectorSet( ent->s.last_lighting_update_pos, -9999, -9999, -9999 );
-			}
-		}
-		else if (((ent->s.renderfx2 & RF2_DIR_LIGHTS) || (ent->client) || deathmatch->value))
+		if (((ent->s.renderfx2 & RF2_DIR_LIGHTS) || (ent->client) || deathmatch_value))
 		{
 			if (!level.num_light_sources)	// no lights to source from, so default back to no dir lighting
 			{
@@ -1045,10 +725,9 @@ void G_RunFrame (void)
 
 				// if single player, only calculate if it's visible to our player
 				if (	(!VectorCompare(ent->s.last_lighting_update_pos, ent->s.origin))
-					 &&	(	(ent->client && !deathmatch->value)
-						||	(	(VectorDistance( ent->s.origin, ent->s.last_lighting_update_pos ) > (deathmatch->value ? 128 : 64))
-							 &&	(	(deathmatch->value)
-								 ||	(level.cut_scene_time)
+					 &&	(	(ent->client && !deathmatch_value)
+						||	(	(VectorDistance( ent->s.origin, ent->s.last_lighting_update_pos ) > (deathmatch_value ? 128 : 64))
+							 &&	(	(deathmatch_value)
 								 ||	(	(gi.inPVS( g_edicts[1].s.origin, ent->s.origin))
 									 &&	(infront( &g_edicts[1], ent ) ))))))
 				{
@@ -1066,87 +745,80 @@ void G_RunFrame (void)
 
 	}
 
+	if (level.framenum > 0x100000)
+	{
+		// the map started a long time ago, restart before counters overflow
+		int		i, count = 0;
+		edict_t *player;
+
+		for_each_player(player, i)
+			count++;
+		if (!count)
+		{
+			char	command[64];
+			Com_sprintf (command, sizeof(command), "gamemap \"%s\"\n", level.mapname);
+			gi.AddCommandString (command);
+			return;
+		}
+	}
+
 // Papa 10.6.99
 // these is where the server checks the state of the current mode
 // all the called functions are found in tourney.c
 
-	if (level.modeset == FREEFORALL)
+	if (level.modeset == PREGAME)
 		CheckStartPub ();
 
 	if (level.modeset == MATCHSETUP)
 		CheckIdleMatchSetup ();
 
-	if (level.modeset == FINALCOUNT)
+	if (level.modeset == MATCHCOUNT)
 		CheckStartMatch ();
 
-	if ((level.modeset == STARTINGMATCH) || (level.modeset == STARTINGPUB))
+	if ((level.modeset == MATCHSPAWN) || (level.modeset == PUBLICSPAWN))
 		CheckAllPlayersSpawned ();
 
 	if (level.modeset == MATCH)
 		CheckEndMatch ();
 
-	if (level.modeset == TEAMPLAY) 
+	if (level.modeset == PUBLIC) 
 		CheckDMRules ();
 
-	if (level.modeset == ENDMATCHVOTING) 
+	if (level.modeset == ENDGAMEVOTE) 
 		CheckEndVoteTime ();
+
+	if (level.modeset == ENDGAME) 
+		CheckEndTime ();
 
 	if (level.voteset != NO_VOTES)
 		CheckVote();
 
-	if ((int)timelimit->value && !(level.framenum%10)) {
-		char buf[16];
-		int t;
-		if (level.modeset == FINALCOUNT) {
-			t =	((150 - (level.framenum - level.startframe)) / 10);
-			sprintf(buf,"start in %d",t);
-			gi.cvar_set(TIMENAME,buf);
-		} else if (level.modeset == FREEFORALL) {
-			t = ((350 -  level.framenum ) / 10);
-			sprintf(buf,"start in %d",t);
-			gi.cvar_set(TIMENAME,buf);
-		} else if (!level.intermissiontime && ((level.modeset == MATCH) || (level.modeset == TEAMPLAY))) {
-			t = ((((int)timelimit->value * 600) + level.startframe - level.framenum ) / 10);
-			if (t>0) {
-				sprintf(buf,"%d:%02d",t/60,t%60);
-				gi.cvar_set(TIMENAME,buf);
-			} else
-				gi.cvar_set(TIMENAME,"");
-		} else
-			gi.cvar_set(TIMENAME,"");
-	}
-
 	// build the playerstate_t structures for all players
 	ClientEndServerFrames ();
 
-	// snap, new uptime display in serverinfo
-	if(uptime_days == 0 && uptime_hours == 0 && uptime_minutes == 0 && uptime_seconds == 0){
-		uptime_days = (int)days->value;
-		uptime_hours = (int)hours->value;
-		uptime_minutes = (int)minutes->value;
-		uptime_seconds = (int)seconds->value;
-	}
+	if (idle_client->value < 60)
+		gi.cvar_set("idle_client", "60");
 
-	if(level.framenum%10 == 0){
-		if(++uptime_seconds == 60){
-			uptime_seconds = 0;
-			if(++uptime_minutes == 60){
-				uptime_minutes = 0;
-				if(++uptime_hours == 24){
-					uptime_hours = 0;
-					uptime_days++;
-				}
-			}
+	if (!(level.framenum % 10))
+	{
+		UpdateTime();
+uptime:
+		if (starttime)
+		{
+			char buf[32];
+			int secs = (int)time(NULL) - starttime;
+			int mins = secs / 60;
+			int hours = mins / 60;
+			int days = hours / 24;
+			if (days)
+				sprintf(buf, "%dd %dh %dm", days, hours % 24, mins % 60);
+			else if (hours)
+				sprintf(buf, "%dh %dm", hours, mins % 60);
+			else if (mins)
+				sprintf(buf, "%dm", mins);
+			else
+				sprintf(buf, "%ds", secs);
+			gi.cvar_set("uptime", buf);
 		}
 	}
-	sprintf(buf2,"%dd:%dh:%dm",uptime_days,uptime_hours,uptime_minutes);
-	gi.cvar_set("uptime",buf2);
-
-    if(idle_client->value<120)
-        gi.cvar_set("idle_client", "120");
-
-    // snap - team tags
-	if(teamplay->value)
-		UPDATETEAM
 }
-

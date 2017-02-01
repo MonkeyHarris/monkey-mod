@@ -21,8 +21,11 @@
 #include "g_ai.h"
 #include "voice.h"
 
-// Episode specific defines
-#include "ep_all.h"
+// kpded2 options that can be enabled via the "g_features" cvar
+#define GMF_CLIENTPOV		1	// server is able to read pov field from gclient_s struct and hide appropriate entity from client
+#define GMF_WANT_ALL_DISCONNECTS 8	// inform game DLL of disconnects (via ClientDisconnect) between level changes
+#define GMF_CLIENTTEAM		0x100	// server is able to read team field from gclient_s struct to include in Gamespy status request replies
+#define GMF_CLIENTNOENTS	0x200	// server is able to read noents field from gclient_s struct to send no entities to client
 
 // Papa 10.6.99 
 
@@ -30,15 +33,15 @@
 
 // Theses are the various mode a server can be in
 
-#define FREEFORALL			0
-#define MATCHSETUP			2
-#define FINALCOUNT			1
-#define MATCH				3
-#define MATCHEND			4
-#define STARTINGMATCH		5
-#define TEAMPLAY			6
-#define STARTINGPUB			7
-#define	ENDMATCHVOTING		8
+#define PREGAME				0
+#define PUBLICSPAWN			1
+#define PUBLIC				2
+#define	ENDGAME				3
+#define	ENDGAMEVOTE			4
+#define MATCHSETUP			5
+#define MATCHCOUNT			6
+#define MATCHSPAWN			7
+#define MATCH				8
 
 // admin types
 
@@ -49,11 +52,7 @@
 #define TRUE				1
 #define FALSE				0
 
-// currently i just use vote on admin, but you could easily add the rest
-
 #define NO_VOTES			0
-#define VOTE_FOR_FFA		21
-#define VOTE_FOR_MATCH		22
 #define VOTE_ON_MAP			23
 #define	VOTE_ON_ADMIN		24
 
@@ -83,10 +82,7 @@
 #define SPECTATING			1
 #define PLAYING				0
 
-// the "gameversion" client command will print this plus compile date
-#define	GAMEVERSION	"Monkey Mod v1.53"
-
-#define	GAMEWEBSITE "www.poisonville.net/mm"
+#define	GAMEVERSION	"Monkey Mod v2.0"
 
 // protocol bytes that can be directly added to messages
 #define	svc_muzzleflash		1
@@ -360,16 +356,7 @@ typedef struct gitem_s
 //
 typedef struct
 {
-	char		helpmessage1[512];
-	char		helpmessage2[512];
-	int			helpchanged;	// flash F1 icon if non 0, play sound
-								// and increment only if 1, 2, or 3
-
 	gclient_t	*clients;		// [maxclients]
-
-	// can't store spawnpoint in level, because
-	// it would get overwritten by the savegame restore
-	char		spawnpoint[512];	// needed for coop respawns
 
 	// store latched cvars here that we want to get at often
 	int			maxclients;
@@ -380,15 +367,6 @@ typedef struct
 
 	// items
 	int			num_items;
-
-	qboolean	autosaved;
-
-// Papa - various counts
-
-//	int			num_rmaps;
-	int			num_cmaps;  // custom maps
-//	int			num_maps; // maps
-	int			num_MOTD_lines;
 } game_locals_t;
 
 
@@ -404,7 +382,6 @@ typedef struct
 	int			framenum;
 	float		time;
 
-	char		level_name[MAX_QPATH];	// the descriptive name (Outer Base, etc)
 	char		mapname[MAX_QPATH];		// the server name (base1, etc)
 	char		nextmap[MAX_QPATH];		// go here when fraglimit is hit
 
@@ -415,30 +392,8 @@ typedef struct
 	vec3_t		intermission_origin;
 	vec3_t		intermission_angle;
 
-	edict_t		*sight_client;	// changed once each frame for coop games
-
-	edict_t		*sight_entity;
-	int			sight_entity_framenum;
-	edict_t		*sound_entity;
-	int			sound_entity_framenum;
-	edict_t		*sound2_entity;
-	int			sound2_entity_framenum;
-
-	int			pic_health;
-
-	int			total_secrets;
-	int			found_secrets;
-
-	int			total_goals;
-	int			found_goals;
-
-	int			total_monsters;
-	int			killed_monsters;
-
 	edict_t		*current_entity;	// entity running from G_RunFrame
 	int			body_que;			// dead bodies
-
-	int			power_cubes;		// ugly necessity for coop
 
 	// BEGIN:	Xatrix/Ridah/Navigator/19-mar-1998
 	// this stores all the node data for the current level
@@ -451,15 +406,6 @@ typedef struct
 
 	edict_t		*characters[MAX_CHARACTERS];	// indexes in g_edicts to all characters in the game
 
-	// Global Cast Memory - stores a lookup table pointing to character-character memories
-	//
-	//	This allows us to easily indentify whether a particular character can see another character
-	//
-	//                                 [    SOURCE    ][     DEST     ]
-	cast_memory_t	*global_cast_memory[MAX_CHARACTERS][MAX_CHARACTERS];
-
-	int			episode;			// current episode being played
-	int			unit;				// current unit within the episode
 	// Ridah, done.
 
 	// RAFAEL 11-05-98
@@ -471,33 +417,7 @@ typedef struct
 	int		num_light_sources;
 	// END 11-05-98
 
-	// RAFAEL
-	float	cut_scene_time;
-	// int		exit_cut_scene;
-	vec3_t	cut_scene_origin;
-	vec3_t	cut_scene_angle;
-	vec3_t	player_oldpos;
-	vec3_t	player_oldang;
-
-	float		pawn_time;
-	vec3_t		pawn_origin;
-	qboolean	pawn_exit;
-
-	qboolean	bar_lvl;
 	float		speaktime;
-	// JOSEPH 24-FEB-99
-	int         cut_scene_camera_switch;
-	int			cut_scene_end_count;
-	// END JOSEPH
-	// JOSEPH 19-MAR-99-B
-    float       fadeendtime;
-	float       totalfade;
-	int			inversefade;
-	// END JOSEPH
-
-	// JOSEPH 13-JUN-99
-	int helpchange;	
-	// END JOSEPH
 
 // Papa 
 	int		modeset;   // what mode is the server in (see #defines)
@@ -507,9 +427,12 @@ typedef struct
 	int		is_spawn;  
 	int		player_num; 
 
-	// snap - team tags
-	int		manual_tagset;
+	// actual time this server frame started
+	int			frameStartTime;
 
+	int		lastactive;
+
+	char playerskins[MAX_CLIENTS][MAX_QPATH]; // player skin configstrings
 } level_locals_t;
 
 
@@ -757,7 +680,7 @@ extern	int	body_armor_index;
 #define MOD_PISTOL				46
 #define MOD_BARMACHINEGUN		47
 #define MOD_SAFECAMPER			48
-#define MOD_RESTART				49
+#define MOD_ELECTRIC			49
 
 
 #define MOD_FRIENDLY_FIRE	0x8000000
@@ -766,9 +689,6 @@ extern	int	meansOfDeath;
 
 
 extern	edict_t			*g_edicts;
-
-extern	cast_memory_t	*g_cast_memory;
-extern	cast_group_t	*g_cast_groups;
 
 #define	FOFS(x) (int)&(((edict_t *)0)->x)
 #define	STOFS(x) (int)&(((spawn_temp_t *)0)->x)
@@ -780,13 +700,14 @@ extern	cast_group_t	*g_cast_groups;
 #define crandom()	(2.0 * (random() - 0.5))
 
 extern	cvar_t	*maxentities;
-extern	cvar_t	*deathmatch;
 
-extern	cvar_t	*maxrate;
+//extern	cvar_t	*deathmatch;
+#define deathmatch_value 1 // "deathmatch" is always set to 1
 
-extern	cvar_t	*coop;
+//extern	cvar_t	*coop;
+#define coop_value 0 // "coop" is always set to 0
+
 extern	cvar_t	*dmflags;
-extern	cvar_t	*skill;
 extern	cvar_t	*fraglimit;
 extern	cvar_t	*timelimit;
 extern	cvar_t	*cashlimit;
@@ -826,43 +747,35 @@ extern  cvar_t  *idle_client;
 // Ridah, new cvar's
 extern	cvar_t	*developer;
 
-extern	cvar_t	*ai_debug_memory;
-
 extern	cvar_t	*g_vehicle_test;
 
 extern	cvar_t	*dm_locational_damage;
 
 extern	cvar_t	*showlights;
 
-extern	cvar_t	*r_directional_lighting;
-
-extern	cvar_t	*sv_runscale;
-
-extern	cvar_t	*burn_enabled;
-extern	cvar_t	*burn_size;
-extern	cvar_t	*burn_intensity;
-extern	cvar_t	*burn_r;
-extern	cvar_t	*burn_g;
-extern	cvar_t	*burn_b;
-
 extern	cvar_t	*timescale;
 
 extern	cvar_t	*teamplay;
 extern	cvar_t	*g_cashspawndelay;
-
-extern	cvar_t	*cl_parental_lock;
-extern	cvar_t	*cl_parental_override;
 
 extern	cvar_t	*dm_realmode;
 
 extern	cvar_t	*g_mapcycle_file;
 // Ridah, done.
 
-//Snap
-extern	int		uptime_days,uptime_hours,uptime_minutes,uptime_seconds;
-extern	cvar_t	*days,*hours,*minutes,*seconds;
+extern	cvar_t	*antilag;
+extern	cvar_t	*props;
 
-extern  cvar_t	*cl_captions;
+extern	cvar_t	*bonus;
+
+extern	int		starttime;
+
+extern	qboolean	kpded2;
+
+extern void (*_GeoIP_delete)(void* gi);
+extern const char *(*_GeoIP_country_name_by_addr)(void* gi, const char *addr);
+extern void *geoip;
+extern int disable_geoip;
 
 #define world	(&g_edicts[0])
 
@@ -916,10 +829,10 @@ extern	gitem_t	itemlist[];
 //
 void Cmd_Help_f (edict_t *ent, int page);
 void Cmd_Score_f (edict_t *ent);
+void Cmd_Spec_f (edict_t *self);
 void Cmd_BanDicks_f(edict_t *ent, int type);
 void Cmd_Mute_f(edict_t *ent, char *clientid);
-void Cmd_ListDicks_f(edict_t *ent);
-//void InitMaps (void);
+void Cmd_ListBans_f(edict_t *ent);
 
 
 //
@@ -936,14 +849,13 @@ void SetRespawn (edict_t *ent, float delay);
 void ChangeWeapon (edict_t *ent);
 void SpawnItem (edict_t *ent, gitem_t *item);
 void Think_Weapon (edict_t *ent);
-int ArmorIndex (edict_t *ent);
-int PowerArmorType (edict_t *ent);
 gitem_t	*GetItemByIndex (int index);
 qboolean Add_Ammo (edict_t *ent, gitem_t *item, int count);
 void Touch_Item (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *surf);
 // JOSEPH 6-JAN-99
 edict_t *Shot_Drop_Item (edict_t *ent, gitem_t *item, char* modeloverride);
 void Think_FlashLight (edict_t *ent);
+
 //
 // g_utils.c
 //
@@ -951,7 +863,7 @@ void Think_FlashLight (edict_t *ent);
 qboolean	KillBox (edict_t *ent);
 void	G_ProjectSource (vec3_t point, vec3_t distance, vec3_t forward, vec3_t right, vec3_t result);
 edict_t *G_Find (edict_t *from, int fieldofs, char *match);
-void G_ClearUp (edict_t *from, int fieldofs);
+void G_ClearUp (void);
 edict_t *findradius (edict_t *from, vec3_t org, float rad);
 edict_t *G_PickTarget (char *targetname);
 void	G_UseTargets (edict_t *ent, edict_t *activator);
@@ -1121,13 +1033,6 @@ void fire_bfg (edict_t *self, vec3_t start, vec3_t dir, int damage, int speed, f
 
 void fire_barmachinegun (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick);
 // RAFAEL
-/*
-void fire_ionripper (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int speed, int effect);
-void fire_heat (edict_t *self, vec3_t start, vec3_t dir, int damage, int speed, float damage_radius, int radius_damage);
-void fire_blueblaster (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int speed, int effect);
-void fire_plasma (edict_t *self, vec3_t start, vec3_t dir, int damage, int speed, float damage_radius, int radius_damage);
-void fire_trap (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int speed, float timer, float damage_radius, qboolean held);
-*/
 void fire_flamethrower (edict_t *self, vec3_t start, vec3_t forward, int damage, int kick, int mod);
 qboolean fire_blackjack (edict_t *self, vec3_t start, vec3_t forward, int damage, int kick, int mod);
 // JOSEPH 19-JAN-99
@@ -1141,15 +1046,14 @@ void fire_rat (edict_t *self, vec3_t start, vec3_t forward, int damage);
 // g_client.c
 //
 void respawn (edict_t *ent);
-void BeginIntermission (edict_t *targ, char *changenext);
+void BeginIntermission (edict_t *targ);
 void PutClientInServer (edict_t *ent);
 void InitClientPersistant (gclient_t *client);
 void InitClientResp (gclient_t *client);
-void InitClientRespClear (gclient_t *client);
 void InitBodyQue (void);
 void ClientBeginServerFrame (edict_t *ent);
-void SV_AddBlend (float r, float g, float b, float a, float *v_blend);
 
+void ClientRejoin(edict_t *ent, qboolean rejoin);
 void DropCash(edict_t *self);
 
 // RAFAEL
@@ -1160,12 +1064,10 @@ void AdjustCutSceneCamera(edict_t *ent);
 void NewCutSceneCamera (edict_t *ent);
 // END JOSEPH
 
-//
-// g_player.c
-//
 void player_pain (edict_t *self, edict_t *other, float kick, int damage, int mdx_part, int mdx_subobject);
 void player_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage, vec3_t point, int mdx_part, int mdx_subobject);
 void ClientBeginDeathmatch (edict_t *ent);
+
 //
 // g_svcmds.c
 //
@@ -1176,6 +1078,7 @@ qboolean SV_FilterPacket (char *from);
 // p_view.c
 //
 void ClientEndServerFrame (edict_t *ent);
+void SV_AddBlend (float r, float g, float b, float a, float *v_blend);
 
 //
 // p_hud.c
@@ -1190,9 +1093,6 @@ void MoveClientToCutScene (edict_t *camera);
 void MoveClientToCutSceneCamera (edict_t *camera, int fov);
 // END JOSEPH
 //
-// g_pweapon.c
-//
-void PlayerNoise(edict_t *who, vec3_t where, int type);
 
 //
 // m_move.c
@@ -1216,15 +1116,6 @@ void MDX_Cleanup (void);
 //
 void G_RunEntity (edict_t *ent);
 
-//
-// g_main.c
-//
-void SaveClientData (void);
-void HideWeapon (edict_t *ent);
-void FetchClientEntData (edict_t *ent);
-void ErrorMSGBox(edict_t *ent, char *string);
-void Cmd_Spec_f (edict_t *self);
-
 // 
 //	g_pawn.c
 //
@@ -1243,6 +1134,8 @@ void PawnRight (edict_t *ent);
 void UpdateChaseCam(edict_t *ent);
 void ChaseNext(edict_t *ent);
 void ChasePrev(edict_t *ent);
+void ChaseStart(edict_t *ent);
+void ChaseStop(edict_t *ent);
 
 //
 // tourney.c
@@ -1261,13 +1154,34 @@ void CheckIdleMatchSetup ();
 void CheckEndMatch ();
 void CheckVote();
 void CheckEndVoteTime ();
+void CheckEndTime();
 void MatchEnd();
-void ResetServer();
-int	CheckNameBan (char *name);
-int	CheckPlayerBan (char *userinfo);
+qboolean ResetServer (qboolean ifneeded);
+int CheckNameBan (char *name);
+int CheckPlayerBan (char *userinfo);
+void setTeamName (int team, char *name);
+void UpdateTeams();
+void UpdateScore();
+void UpdateTime();
+edict_t *GetAdmin();
 
+//
+// unlagged.c
+//
+void G_ResetHistory( edict_t *ent );
+void G_StoreHistory( edict_t *ent );
+void G_DoTimeShiftFor( edict_t *ent );
+void G_UndoTimeShiftFor( edict_t *ent );
+void G_UnTimeShiftClient( edict_t *ent );
 
-void TestScoreboardMessage (edict_t *ent);
+#define NUM_CLIENT_HISTORY 6
+
+// everything we need to know to backward reconcile
+typedef struct {
+	vec3_t		mins, maxs;
+	vec3_t		origin;
+	int			time;
+} clientHistory_t;
 
 
 
@@ -1278,9 +1192,10 @@ void TestScoreboardMessage (edict_t *ent);
 #define	ANIM_BASIC		1		// stand / run
 #define	ANIM_WAVE		2
 #define	ANIM_JUMP		3
-#define	ANIM_PAIN		4
-#define	ANIM_REVERSE	5
-#define	ANIM_DEATH		6
+#define ANIM_JUMP_ATTACK 4
+#define	ANIM_PAIN		5
+#define	ANIM_REVERSE	6
+#define	ANIM_DEATH		7
 
 #define MAX_WEAPONS	10
 
@@ -1293,7 +1208,7 @@ typedef struct
 	int			hand;
 	int			version;		// collected from Userinfo, used to determine
 
-	qboolean	connected;			// a loadgame will leave valid entities that
+	int			connected;			// a loadgame will leave valid entities that
 									// just don't have a connection yet
 
 	// values saved and restored from edicts when changing levels
@@ -1318,18 +1233,10 @@ typedef struct
 	gitem_t		*weapon;
 	gitem_t		*lastweapon;
 
-	// JOSEPH 25-SEP-98
-	gitem_t  *holsteredweapon;
-
 	// JOSEPH 3-FEB-99
 	int			currentcash;
 	// END JOSEPH
 
-	int			power_cubes;	// used for tracking the cubes in coop games
-	int			score;			// for calculating total unit score in coop games
-
-	int			game_helpchanged;
-	int			helpchanged;
 	int			weapon_clip[MAX_WEAPONS];
 	int			pistol_mods;
 	
@@ -1337,12 +1244,8 @@ typedef struct
 	int			episode_flags;
 	int			silencer_shots;
 
-	// number of hired guys
-	int			friends;
-
 	// teamplay
-	int			team;
-	int			bagcash;// cash being held in bag
+	int			bagcash;		// cash being held in bag
 
 	int			hmg_shots;
 
@@ -1350,7 +1253,10 @@ typedef struct
 	float		timeatsafe;		// record how long we've been standing at the safe
 	int			friendly_vulnerable;
 
-// Papa 10.6.99 Admin stuff
+// everything above is reset at respawn, everything below isn't ("team" must be 1st)
+
+	int			team;
+
 	int			admin;  // is the player the admin?
 	int			spectator;  // is the player a spectator?
 
@@ -1358,47 +1264,57 @@ typedef struct
 	char		rconx[32];
 	const char*	country;
 
-    int         polyblender;
-    int         mute;
+	int			lastpacket;
+	int			polyblender;
+	int			mute;
+	int			noantilag;
 
-#define TEXTBUFSIZE 2048
-	char		textbuf[TEXTBUFSIZE];
-
+	int			anonwarn;
 } client_persistant_t;
 
 // client data that stays across deathmatch respawns
 typedef struct
 {
-	client_persistant_t	coop_respawn;	// what to set client->pers to on a respawn
 	int			enterframe;			// level.framenum the client entered the game
 	int			score;				// frags, etc
 	vec3_t		cmd_angles;			// angles sent over in the last command
-	int			game_helpchanged;
-	int			helpchanged;
 
 	// teamplay
 	int			deposited;		// amount this player has deposited
 
-	// voting system
-	char		ban_id;			// so we only let them vote once
-	float		last_ban;
-
-// Papa 10.6.99 Admin stuff
 	int			is_spawn;  
-	int			admin;
 
-	int			accshot,acchit,fav[8];
+	int			accshot, acchit, fav[8], stole;
+	int			time;
 
-	int			checkdelta,checkpvs,checktime,checktex,checkfoot,checkmouse;
+	int			vote;  // stores the player's vote
+
+	int			switch_teams_frame;  // slow down how fast a player can switch teams
+	int			name_change_frame;
+	int			scoreboard_frame;
+
+	int			check_idle;
+	int			checkdelta, checkpvs, checktime, checktex, checkfoot, checkmouse;
+
+	int			kickdelay;
+	char		*kickmess;
+
+#define TEXTBUFSIZE 2048
+	char		textbuf[TEXTBUFSIZE];
 } client_respawn_t;
 
 // this structure is cleared on each PutClientInServer(),
-// except for 'client->pers'
+// except for 'client->pers' (and 'client->resp')
 struct gclient_s
 {
 	// known to server
 	player_state_t	ps;				// communicated by server to clients
 	int				ping;
+
+	// also known to kpded2 server (enabled via g_features)
+	int				pov;			// who's eyes we're looking through (eyecam chase)
+	int				team;			// sent to server browsers
+	qboolean		noents;			// remove all entities from view
 
 	// private to game
 	client_persistant_t	pers;
@@ -1407,8 +1323,6 @@ struct gclient_s
 
 	int			showscores;			// set layout stat
 	qboolean	showinventory;		// set layout stat
-	qboolean	showhelp;
-	qboolean	showhelpicon;
 
 	int			ammo_index;
 
@@ -1463,17 +1377,15 @@ struct gclient_s
 	int			last_weapontype;	// Ridah, so we change animations when they change weapons
 
 	// powerup timers
-	float		quad_framenum;
+	int			quad_framenum;
 	int			invincible_framenum;
-	float		breather_framenum;
-	float		enviro_framenum;
+	int			breather_framenum;
+	int			enviro_framenum;
 
 	qboolean	grenade_blew_up;
 	float		grenade_time;
 	// RAFAEL
 	float		quadfire_framenum;
-	qboolean	trap_blew_up;
-	float		trap_time;
 	
 	int			weapon_sound;
 
@@ -1493,9 +1405,6 @@ struct gclient_s
 
 	qboolean	flashlight;
 
-	// RAFAEL	28-dec-98
-	qboolean	gun_noise;
-	
 	// Ridah	
 	float		jetpack_power;		// recharges at 0.5 per second (while not in use), uses at 1.0 per second, maxes at 5.0 seconds of power
 	qboolean	jetpack_warned;
@@ -1508,22 +1417,24 @@ struct gclient_s
 
 	// chase
 	edict_t		*chase_target;
-	qboolean	update_chase;
 
 	// snap, for new chasecam mode(s)
 	int			chasemode;
-	int			chase_check;
+	int			chase_frame;
+	player_state_t prechase_ps;
 
-	player_state_t temp_ps;
-	unsigned int update_cam;
-	int chasetype;
-
-//	Snap, bunnyhop
+	//	Snap, bunnyhop
 	int			land_framenum;
 	int			strafejump_count;
 	int			firstjump_frame;
 
-    int         fakeThief;
+	int			move_frame;
+	int			fakeThief;
+	int			mapvote;
+
+	int			historyHead;	// the head of the history queue
+	clientHistory_t	history[NUM_CLIENT_HISTORY]; // the history queue
+	clientHistory_t	saved;		// the client's saved position
 };
 
 
@@ -1647,8 +1558,6 @@ struct edict_s
 	int			gib_health;
 	int			deadflag;
 	qboolean	show_hostile;
-
-	float		powerarmor_time;
 
 	char		*map;			// target_changelevel
 
@@ -1851,17 +1760,7 @@ struct edict_s
 
 	float		gun_noise_delay;
 
-	float		noise_time;
-	vec3_t		noise_pos;
-	int			noise_type;
-	vec3_t		noise_angles;
-
 	int			gender;				// so we know what sorts of sounds to play, uses GENDER_*
-
-	// combat AI stuff
-	float		combat_last_visible;
-	vec3_t		combat_last_visible_pos;
-	int			combat_flags;
 
 	float		take_cover_time;
 
@@ -1873,33 +1772,12 @@ struct edict_s
 	int			health_threshold3;
 	char		*health_target3;
 
-	float		stand_if_idle_time;		// stand if crouching and not doing much
-
-//  Papa 	
-	int			vote;  // stores the players vote
-	int			switch_teams_frame;  // slow down how fast a player can switch teams
-	int			move_frame;
-	char		skins[32];
-	int			anonwarn;
-	int			kickdelay;
-	char		*kickmess;
-
-    //client idleing
-    vec3_t      last_origin;
-    int         check_idle;
-
-    int         name_change_frame;
+	int			launch_delay; // missile launch delay
 };
 
 // RAFAEL
 #define ACTIVATE_GENERAL  1
 #define	ACTIVATE_AND_OPEN 2
-
-// Ridah, used for lightpainting
-#define LP_SIZE		(12+2+1+1+1+1)
-extern unsigned char		*lpbuf[0xFFFF];
-extern int					num_lpbuf;
-
 
 #define WEAPON_MOD_ROF		1
 #define WEAPON_MOD_RELOAD	2
@@ -1920,37 +1798,19 @@ typedef struct
 	int		count;		// for the Runt
 } follower_t;
 
-#define		MAX_FOLLOWERS	2
-extern follower_t	followers[MAX_FOLLOWERS];
-extern int	num_followers;
-
 // Ridah, object bounds data is now stored in a global array for indexing, to accomodate the save/loadgame system
 #define	MAX_OBJECT_BOUNDS	2048
 extern	int				num_object_bounds;
 extern	object_bounds_t	*g_objbnds[MAX_OBJECT_BOUNDS];
 
 
-// Papa 10.11.99 my globals phear them
+extern char maplist[1024][32];
 
-
-typedef struct
-{
-	char valid_map[16];  // used to store kingpins valid maps, remember if a player tries to switch
-} vmap_t;				// to a map thats not on the server, the server stops
-
-
-typedef struct
-{
-	char custom_map[32];  // used to store custom maps, read in at startup
-	int	 rank;
-} custom_t;
-
-custom_t custom_list[1024];
-
-extern int	 vote_set[9];        // stores votes for next map
+extern int vote_set[9];        // stores votes for next map
+extern int num_vote_set;
 
 extern char admincode[16];		 // the admincode
-extern char default_map[32];    // default settings
+extern char default_map[32];
 extern char default_teamplay[16];
 extern char default_dmflags[16];
 extern char default_password[16];
@@ -1958,28 +1818,28 @@ extern char default_timelimit[16];
 extern char default_cashlimit[16];
 extern char default_fraglimit[16];
 extern char default_dm_realmode[16];
-extern char custom_map_filename[32];  // stores where various files can be found
+extern char default_anti_spawncamp[16];
+extern char default_bonus[16];
+extern char map_list_filename[32];
 extern char ban_name_filename[32];
 extern char ban_ip_filename[32];
 extern int allow_map_voting;
+extern int wait_for_players;
 extern int disable_admin_voting;
 extern int scoreboard_first;
 extern int fph_scoreboard;
-extern int total_rank;          // used in calculating maps picks based on weight
-extern int num_custom_maps;
+extern int num_maps;
 extern int num_netnames;
 extern int num_ips;
 
 extern int fixed_gametype;
 extern int enable_password;
 extern char rconx_file[32];
-//extern char server_url[64];
 extern int num_rconx_pass;
 extern int keep_admin_status;
 extern int default_random_map;
 extern int disable_anon_text;
 extern int disable_curse;
-//extern int enable_asc;
 extern int unlimited_curse;
 extern int enable_killerhealth;
 
@@ -1989,17 +1849,16 @@ typedef struct   // Message of the Day
 } MOTD_t;
 
 extern MOTD_t	MOTD[20];
+extern int		num_MOTD_lines;
 
 typedef struct // stores player info if they disconnect
 {
-	char netname[16];
+	char player[MAX_QPATH];
 	int frags;
-	int	deposits;
+	int	deposits, stole;
 	int	team;
-	char skin[64];
 	int	time;
-    int	accshot,acchit,fav[8];
-    int mute;
+	int	accshot, acchit, fav[8];
 } player_t;
 
 extern player_t playerlist[64];
@@ -2014,25 +1873,23 @@ extern ban_t	ip[100];
 
 extern ban_t	rconx_pass[100];
 
-// snap - team tags
-#define TEAMNAME " team names"
-#define UPDATETEAM {\
-	char buf[48];\
-	sprintf(buf,"%s : %s",team_names[1],team_names[2]);\
-	gi.cvar_set(TEAMNAME,buf);\
-}
-#define SCORENAME " team scores"
-#define UPDATESCORE {\
-	char buf[16];\
-	sprintf(buf,"%d : %d",team_cash[1],team_cash[2]);\
-	gi.cvar_set(SCORENAME,buf);\
-}
-#define TIMENAME " time remaining"
+#define TEAMNAME "teams"
+#define SCORENAME "scores"
+#define TIMENAME "time"
 
-
-extern char lockpvs[8],scaletime[8],locktex[8],lockfoot[8],lockmouse[8];
+extern char cmd_check[8];
 
 void cprintf(edict_t *ent, int printlevel, char *fmt, ...);
 
-#define KICKENT(ent,mess) {ent->kickmess=mess;ent->kickdelay=2;}
+#define KICKENT(ent,mess) {ent->client->resp.kickmess=mess;ent->client->resp.kickdelay=2;}
 
+/*
+	The Kingpin client can download models/skins/maps/textures but its support for
+	sounds/images/skies is broken. The broken image download support can be taken
+	advantage of though to allow those things to be downloaded, which is what kpded2
+	does. Sounds passed to "soundindex" (eg. "target_speaker" entities) and skies are
+	handled automatically by kpded2, but the "imageindex" function can be used (eg. via
+	the "dlindex" macro) to add any other files to the downloadable list (only files
+	starting with "/pics/" will be added to the image list).
+*/
+#define dlindex(file) {if (kpded2) gi.imageindex(file);}

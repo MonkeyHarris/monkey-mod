@@ -4,12 +4,10 @@
 #include "voice_punk.h"
 #include "voice_bitch.h"
 
-#define CHECKFIXED(a)\
-if (fixed_gametype) cprintf(ent,PRINT_HIGH,"This server's game type may not be changed\n");\
-else {gi.cvar_set(a,value);cprintf(ent,PRINT_HIGH,"This setting will take effect with a map change\n");}
-
+extern int manual_tagset;
 extern int team_startcash[2];
-extern int memalloced[3];
+
+char votemap[32];
 
 //tical - define taunts
 #define KINGPIN		1
@@ -30,455 +28,39 @@ extern int memalloced[3];
 #define BLUNT		15
 #define BETH		16
 
-
-
-// Papa - I just commented out the Kingpin's ban player code 
-//------------------------------------------------------------------------------------
-/*
-edict_t *ban_target, *ban_source, *ban_thinker;
-int		ban_count;
-char	ban_ip[MAX_QPATH];	// make sure we don't kick a different user
-float	last_ban_time;
-char	ban_id;		// so we only allow each person to vote once per ban
-char	last_kick_ip[MAX_QPATH];
-int		ban_player_count=0;
-
-void Cmd_Players_f (edict_t *ent);
-
-qboolean BanEnoughVotes(void)
-{
-	edict_t *trav;
-	int	need;
-
-	trav = &g_edicts[1];
-
-	while (trav <= &g_edicts[(int)maxclients->value])
-	{
-		if (trav->inuse && trav->client /*&& (trav != ban_target)
-			&&	(!teamplay->value || !ban_target->client || !ban_target->client->pers.team || (ban_target->client->pers.team == trav->client->pers.team)))
-		{
-			ban_player_count++;
-		}
-
-		trav++;
-	}
-
-//	if (teamplay->value)
-//		need = (int)floor(ban_player_count / 2);
-//	else
-		need = (int)ceil(ban_player_count / 2);
-
-	if (need < 3)
-		need = 3;
-
-	return (ban_count >= need);
-}
-
-void BanThink(edict_t *ent)
-{
-	char	*ip;
-
-	if (!ban_target || !ban_target->inuse || !ban_target->client)
-	{
-		ban_target = NULL;
-		G_FreeEdict(ent);
-		return;
-	}
-
-	if (ban_id != ent->count)
-	{
-		// another ban has formed
-		G_FreeEdict(ent);
-		return;
-	}
-
-	// check the IP is the same
-	ip = Info_ValueForKey( ban_target->client->pers.userinfo, "ip" );
-	if (ip && ip[0])
-	{
-		if (strcmp(ip, ban_ip))
-		{
-			ban_target = NULL;
-			G_FreeEdict(ent);
-			return;
-		}
-	}
-			
-	// if we have enough, cancel the kick request
-	if (!BanEnoughVotes())
-	{
-		if (ban_source->inuse)
-			cprintf( ban_source, PRINT_HIGH, "Vote did not succeed.\n" );
-		ban_target = NULL;
-		G_FreeEdict(ent);
-		return;
-	}
-
-	// kick them
-	gi.bprintf( PRINT_HIGH, "%s was kicked by unanimous vote (next time they will be banned).\n", ban_target->client->pers.netname );
-
-	if (!strcmp(ban_ip, last_kick_ip))
-	{	// ban them
-		gi.bprintf( PRINT_HIGH, "Blocking %s from returning to game.\n", ban_target->client->pers.netname );
-		gi.AddCommandString(va("sv addip %s\n", ban_ip));
-	}
-
-	gi.AddCommandString(va("kick %i\n", (int)(ban_target - g_edicts - 1)));
-
-	strcpy( last_kick_ip, ban_ip );
-
-	ban_target = NULL;
-	G_FreeEdict(ent);
-}
-
-void Cmd_Response_f (edict_t *ent)
-{
-	char	*ip;
-
-	if (!ban_target)
-	{
-		cprintf( ent, PRINT_HIGH, "Nothing to \"%s\" with.\n", gi.argv(0) );
-		return;
-	}
-
-	if (ent == ban_target)
-		return;
-
-	if (ent->client->resp.ban_id == ban_id)
-	{
-		cprintf( ent, PRINT_HIGH, "You've already voted once.\n" );
-		return;
-	}
-
-	if (!ban_target->inuse || !ban_target->client)
-	{
-		cprintf( ent, PRINT_HIGH, "The player has already left.\n" );
-		ban_target = NULL;
-		return;
-	}
-
-	if (teamplay->value && ban_target->client->pers.team && (ban_target->client->pers.team != ent->client->pers.team))
-	{
-		cprintf( ent, PRINT_HIGH, "You cannot vote, %s is not on your team.\n", ban_target->client->pers.netname );
-		return;
-	}
-
-	// don't let us vote if we were just kicked
-	ip = Info_ValueForKey( ent->client->pers.userinfo, "ip" );
-	if (ip && ip[0])
-	{
-		if (!strcmp(ip, last_kick_ip))
-		{
-			cprintf( ent, PRINT_HIGH, "You cannot vote.\n" );
-			return;
-		}
-	}
-
-
-	ip = Info_ValueForKey( ban_target->client->pers.userinfo, "ip" );
-	if (!ip)
-	{
-		cprintf( ent, PRINT_HIGH, "%s has an unknown IP address\n", ban_target->client->pers.netname );
-		ban_target = NULL;
-		return;
-	}
-	if (strcmp(ip, ban_ip))
-	{
-		cprintf( ent, PRINT_HIGH, "The player has left or been replaced with another player\n" );
-		ban_target = NULL;
-		return;
-	}
-
-	if (!strcmp(gi.argv(0), "no"))
-	{
-		if (ban_source->inuse)
-			cprintf( ban_source, PRINT_HIGH, "The vote did not succeed.\n" );
-
-		cprintf(ent, PRINT_HIGH, "Objection noted.\n" );
-
-		ent->client->resp.ban_id = ban_id;
-		ban_count--;
-		return;
-	}
-
-	ent->client->resp.ban_id = ban_id;
-	ban_count++;
-
-	if (BanEnoughVotes())
-	{
-		ban_thinker->think(ban_thinker);
-	}
-	else
-	{
-		cprintf(ent, PRINT_HIGH, "Vote recorded, awaiting votes from other players.\n" );
-	}
-
-}
-
-void Vote_Ban( edict_t *ent, char *name )
-{
-	edict_t *target;
-	int		i;
-	char	*ip;
-
-	if (ent->client->resp.last_ban && (ent->client->resp.last_ban > (level.time - 60)))
-	{
-		cprintf( ent, PRINT_HIGH, "You can only VOTE once per 60 seconds\n" );
-		return;
-	}
-
-	if (last_ban_time)
-	{
-		if (last_ban_time > level.time)
-		{
-			last_ban_time = 0;
-		}
-
-		if (last_ban_time > (level.time - 20))
-		{
-			cprintf( ent, PRINT_HIGH, "Only one VOTE per 20 seconds allowed\n" );
-			return;
-		}
-	}
-
-	// find the player
-	if (((i = atoi(name)) > 0) && i <= maxclients->value)
-	{
-		if (!g_edicts[i].inuse || !g_edicts[i].client)
-		{	// fail
-			cprintf( ent, PRINT_HIGH, "\nUnable to match id '%i' with a current player.\n\nValid player id's are:\n\n", i );
-			Cmd_Players_f(ent);
-			return;
-		}
-
-		target = &g_edicts[i];
-	}
-	else	// scan for the name
-	{
-		for (i=1; i<=maxclients->value; i++)
-		{
-			target = &g_edicts[i];
-
-			if (!target->inuse)
-				continue;
-			if (!target->client)
-				continue;
-
-			if (!Q_strcasecmp( target->client->pers.netname, name ))
-				break;
-		}
-
-		if (i>maxclients->value)
-		{
-			cprintf( ent, PRINT_HIGH, "\nUnable to match '%s' with a current player.\n\nTry using a player id from the following list (eg. 'vote ban 4'):\n\n", name );
-			Cmd_Players_f(ent);
-			return;
-		}
-	}
-	
-	// can't kick someone on the other team
-	if (teamplay->value && target->client->pers.team && (target->client->pers.team != ent->client->pers.team))
-	{
-		cprintf( ent, PRINT_HIGH, "You cannot kick a member of the other team.\n" );
-		return;
-	}
-
-
-	// vote for them
-	ip = Info_ValueForKey( target->client->pers.userinfo, "ip" );
-	if (!ip || !ip[0])
-	{
-		cprintf( ent, PRINT_HIGH, "%s has an unknown IP address\n", name );
-		return;
-	}
-	if (!strcmp(ip, "loopback"))
-	{
-		cprintf( ent, PRINT_HIGH, "%s is running the server, cannot BAN host\n", name );
-		return;
-	}
-
-	strcpy( ban_ip, ip );
-
-	ent->client->resp.ban_id = ++ban_id;
-	ent->client->resp.last_ban = level.time;
-	last_ban_time = level.time;
-	ban_count = 1;
-
-	ban_source = ent;
-	ban_target = target;
-
-	cprintf( ent, PRINT_HIGH, "You have voted to kick/ban %s.\nAwaiting responses from other players.\n", ban_target->client->pers.netname );
-
-	gi.dprintf( "%s formed a vote to kick/ban %s.\n", ent->client->pers.netname, ban_target->client->pers.netname );
-		
-	// start the thinker
-	target = G_Spawn();
-	target->owner = ban_target;
-	target->think = BanThink;
-	target->nextthink = level.time + 15;
-	target->count = ban_id;
-
-	ban_thinker = target;
-
-	BanEnoughVotes();
-
-	// now tell everyone except this player
-	for (i=1; i<=(int)maxclients->value; i++)
-	{
-		if (!g_edicts[i].client)
-			continue;
-		if (!g_edicts[i].inuse)
-			continue;
-		if (&g_edicts[i] == ent)
-			continue;
-		if (&g_edicts[i] == ban_target)
-			continue;
-		if (teamplay->value && ban_target->client->pers.team && (ban_target->client->pers.team != g_edicts[i].client->pers.team))
-			continue;
-
-		gi.cprintf( &g_edicts[i], PRINT_CHAT, ">> %s has voted to BAN %s. Type 'yes' in the consol if you agree, 'no' if you disagree. %i votes required.", ent->client->pers.netname, ban_target->client->pers.netname, ban_player_count );
-	}
-}
-
-void Cmd_Vote_f (edict_t *ent)
-{
-	char	*cmd, *name;
-
-	cmd = gi.argv(1);
-
-	if (!strcmp( cmd, "ban" ))
-	{
-		name = gi.argv(2);
-
-		if (!name[0])
-		{
-			cprintf( ent, PRINT_HIGH, "You must supply a name\n" );
-			return;
-		}
-
-		Vote_Ban( ent, name );
-	}
-	else
-	{
-		cprintf( ent, PRINT_HIGH, "Unknown voting command.\n" );
-	}
-
-}
-*/
 //------------------------------------------------------------------------------------
 
-// BEGIN:	Xatrix/Ridah/Navigator/23-mar-1998
-int		showpath_on=false;
-edict_t	*showpath_ent;
-
-void Cmd_NavDebugDest_f (edict_t *ent)
-{
-	if (deathmatch->value)
-	{
-		cprintf(ent, PRINT_HIGH, "This command only available when deathmatch = 0\n");
-		return;
-	}
-
-	if (!showpath_ent)
-	{	// spawn it
-		showpath_ent = G_Spawn();
-		showpath_ent->s.modelindex = 255;
-	}
-
-	VectorCopy( ent->s.origin, showpath_ent->s.origin );
-	gi.linkentity(showpath_ent);
-}
-
-void Cmd_NavDebugShowPath_f (edict_t *ent)
-{
-	if (deathmatch->value)
-	{
-		cprintf(ent, PRINT_HIGH, "This command only available when deathmatch = 0\n");
-		return;
-	}
-/*
-	if (!ent->nav_build_data)
-	{
-		cprintf(ent, PRINT_HIGH, "nav_dynamic 1 must be set to use this command\n");
-		return;
-	}
-*/
-	if (!(showpath_on))
-	{		// enable path
-
-//		if (!ent->nav_build_data->debug_dest)
-		{	// create it
-			Cmd_NavDebugDest_f (ent);
-		}
-
-		showpath_on = true;
-//		ent->nav_build_data->flags |= NBD_SHOWPATH;
-	}
-	else	// disable path
-	{
-		showpath_on = false;
-//		ent->nav_build_data->flags &= ~NBD_SHOWPATH;
-
-		// kill the destination entity
-		G_FreeEdict(showpath_ent);
-		showpath_ent = NULL;
-	}
-}
-
-// Clears the nav_data for the current level
-void Cmd_NavClear_f ( edict_t *self )
-{
-	if (deathmatch->value)
-	{
-		cprintf(self, PRINT_HIGH, "This command only available when deathmatch = 0\n");
-		return;
-	}
-
-	// clear the current nodes
-	level.node_data->modified = false;
-	NAV_PurgeActiveNodes ( level.node_data );
-
-	// create the node data structure
-	level.node_data = gi.TagMalloc (sizeof (active_node_data_t), TAG_GAME);
-	NAV_InitActiveNodes	( level.node_data );
-	NAV_WriteActiveNodes ( level.node_data, level.mapname );
-
-	gi.AddCommandString( "echo \necho Cleared Navigational Data, closing down server.\necho \ndisconnect\n" );
-}
-
-// END:		Xatrix/Ridah/Navigator/23-mar-1998
 
 //--------------------------------------------------------
 // TEAMPLAY commands
-extern void ClientBeginDeathmatch (edict_t *ent);
 
 // Papa - add player to specator
 void Cmd_Spec_f (edict_t *self)
 {
-//	if (!teamplay->value)
-//	{
-//		cprintf(self, PRINT_HIGH, "This command only available when teamplay is enabled\n");
-//		return;
-//	}
-	
-	if (self->client->pers.spectator == SPECTATING && !self->client->pers.team)
+	if (self->client->pers.spectator == SPECTATING)
 		return;
 
-	DropCash(self);
+	if (self->solid != SOLID_NOT) DropCash(self);
 
-	if (teamplay->value && self->client->pers.team) {
-		gi.bprintf (PRINT_MEDIUM, "%s left %s\n", self->client->pers.netname, team_names[self->client->pers.team]);
-		meansOfDeath = MOD_RESTART;
-	} else
-		meansOfDeath = MOD_SUICIDE;
+	if (teamplay->value && self->client->pers.team)
+		gi.bprintf (PRINT_HIGH, "%s left %s\n", self->client->pers.netname, team_names[self->client->pers.team]);
+	else
+		gi.bprintf (PRINT_HIGH, "%s became a spectator\n", self->client->pers.netname);
 
 	self->client->pers.team = 0;
 	self->client->pers.spectator = SPECTATING;
-	
-	self->flags &= ~FL_GODMODE;
-	self->health = 0;
+	if (self->solid != SOLID_NOT)
+	{
+		// send effect
+		gi.WriteByte (svc_muzzleflash);
+		gi.WriteShort (self - g_edicts);
+		gi.WriteByte (MZ_LOGOUT);
+		gi.multicast (self->s.origin, MULTICAST_PVS);
 
-	ClientBeginDeathmatch( self );
+		ClientBeginDeathmatch( self );
+		if (!self->client->showscores) Cmd_Score_f(self);
+		self->client->resp.scoreboard_frame = 0;
+	}
 }
 
 // Papa - add plater to a team
@@ -487,15 +69,20 @@ void Cmd_Join_f (edict_t *self, char *teamcmd)
 	int	i;
 	char str1[MAX_QPATH], varteam[MAX_QPATH];
 
-	if ((!teamplay->value) && (self->client->pers.spectator == SPECTATING))
+	self->client->resp.check_idle = level.framenum;
+
+	if (!teamplay->value)
 	{
+		if (self->client->pers.spectator != SPECTATING)
+			return;
+		if (self->client->resp.switch_teams_frame && level.framenum < (self->client->resp.switch_teams_frame + 20))
+		{
+			cprintf(self, PRINT_HIGH, "Overflow protection: Unable to rejoin yet\n");
+			return;
+		}
+		self->client->resp.switch_teams_frame = level.framenum;
 		self->client->pers.spectator = PLAYING;
-		self->flags &= ~FL_GODMODE;
-		self->health = 0;
-		meansOfDeath = MOD_RESTART;
-		self->solid = SOLID_NOT;
-//		player_die (self, self, self, 1, vec3_origin, 0, 0);
-		ClientBeginDeathmatch( self );	
+		ClientBeginDeathmatch( self );
 		return;
 	}
 
@@ -520,17 +107,15 @@ void Cmd_Join_f (edict_t *self, char *teamcmd)
 				}
 				else
 				{
-					if (level.framenum < (self->switch_teams_frame + 20)) {
-						cprintf(self,PRINT_HIGH,"Overflow protection: Unable to change team yet\n");
+					if (self->client->resp.switch_teams_frame && level.framenum < (self->client->resp.switch_teams_frame + 20))
+					{
+						cprintf(self, PRINT_HIGH, "Overflow protection: Unable to change team yet\n");
 						return;
 					}
-					self->switch_teams_frame = level.framenum;
+					self->client->resp.switch_teams_frame = level.framenum;
 
-					// kill us if currently in game
-					if ((self->client->pers.team) && (!(level.modeset == MATCHSETUP) || (level.modeset == FINALCOUNT) || (level.modeset == FREEFORALL)))
-					{
-                        Cmd_Spec_f (self);
-					}
+					if (self->client->pers.team)
+						Cmd_Spec_f (self);
 
 					if (!Teamplay_ValidateJoinTeam( self, i ))
 					{
@@ -547,79 +132,6 @@ void Cmd_Join_f (edict_t *self, char *teamcmd)
 }
 
 //--------------------------------------------------------
-/*
-void Cmd_GetTexture_f (edict_t *self)
-{
-	vec3_t	start, end;
-	vec3_t	fwd;
-	trace_t	tr;
-
-	if (deathmatch->value)
-	{
-		cprintf(self, PRINT_HIGH, "This command only available when deathmatch = 0\n");
-		return;
-	}
-
-	// trace a line and print the texture we hit
-	AngleVectors( self->client->v_angle, fwd, NULL, NULL );
-	VectorCopy( self->s.origin, start );
-	start[2] += self->viewheight;
-
-	VectorMA( start, 2048, fwd, end );
-
-	tr = gi.trace( start, NULL, NULL, end, self, MASK_SOLID - CONTENTS_MONSTER );
-
-	if (tr.fraction < 1 && tr.surface && tr.surface->name)
-	{
-		if (tr.surface->value > ((int)(level.time*10) - 3))
-		{
-			cprintf( self, PRINT_HIGH, "Saving texture: %s\n", tr.surface->name );
-
-			{
-				cvar_t	*game_dir, *base_dir;
-				char	filename[MAX_QPATH], dir[MAX_QPATH];
-				FILE	*f;
-
-				game_dir = gi.cvar("game", "", 0);
-				base_dir = gi.cvar("basedir", "", 0);
-
-				// dir, eg: .\main\maps
-				strcpy( dir, base_dir->string);
-				strcat( dir, DIR_SLASH);
-
-				strcat( dir, "source");
-				strcat( dir, DIR_SLASH);
-				strcat( dir, "ref_gl");
-
-				// filename, eg: .\main\maps\skidrow.pnt
-				strcpy( filename, dir);
-				strcat( filename, DIR_SLASH);
-				strcat( filename, "specular_textures.h");
-
-				// try and open the file for writing
-				f = fopen ( filename, "a+b");
-				if (!f)
-				{
-					cprintf ( self, PRINT_HIGH, "Couldn't open %s for writing.\n", filename);
-					return;
-				}
-
-				fprintf( f, "\"%s\",\n", tr.surface->name );
-
-				fclose( f );
-
-				cprintf ( self, PRINT_HIGH, "Saved.\n" );
-			}
-		}
-		else
-		{
-			cprintf( self, PRINT_HIGH, "Hit texture: %s\n", tr.surface->name );
-		}
-
-		tr.surface->value = (int)(level.time*10);
-	}
-}
-*/
 void Cmd_GearUp_f (edict_t *self)
 {
 	vehicle_t *vehicle;
@@ -655,970 +167,8 @@ void Cmd_GearDown_f (edict_t *self)
 		vehicle->gear = vehicle->def->gearbox->num_gears - 1;
 }
 
-// Saves the current LightPaint data
-void Cmd_BurnSave_f (edict_t *self)
-{
-	cvar_t	*game_dir, *base_dir;
-	char	filename[MAX_QPATH], dir[MAX_QPATH];
-	int		i;
-	FILE	*f;
-
-	if (deathmatch->value)
-	{
-		cprintf(self, PRINT_HIGH, "This command only available when deathmatch = 0\n");
-		return;
-	}
-
-	game_dir = gi.cvar("game", "", 0);
-	base_dir = gi.cvar("basedir", "", 0);
-
-	// dir, eg: .\main\maps
-	strcpy( dir, base_dir->string);
-	strcat( dir, DIR_SLASH);
-
-	if (strlen(game_dir->string) == 0)
-		strcat( dir, "main");
-	else
-		strcat( dir, game_dir->string);
-
-	strcat( dir, DIR_SLASH);
-	strcat( dir, "maps");
-
-	// filename, eg: .\main\maps\skidrow.pnt
-	strcpy( filename, dir);
-	strcat( filename, DIR_SLASH);
-	strcat( filename, level.mapname);
-	strcat( filename, ".pnt");
-
-	// try and open the file for writing
-	f = fopen ( filename, "a+b");
-	if (!f)
-	{
-		cprintf ( self, PRINT_HIGH, "Couldn't open %s for writing.\n", filename);
-		return;
-	}
-
-	for (i=0; i<num_lpbuf; i++)
-	{
-		fwrite( lpbuf[i], LP_SIZE, 1, f );
-
-		free( lpbuf[i] );
-	}
-
-	num_lpbuf = 0;
-
-	fclose( f );
-
-	cprintf ( self, PRINT_HIGH, "Saved LightPaint to %s.\n", filename);
-}
-
-#if 0	// turn this off once we have the tables (not used by actual game code)
-
-//-------------------------------------------------------------
-// Ridah, only used to calculate the new x_anorms.h
-void Cmd_Anorms_f (void)
-{
-	#define	NUM_PITCH_STEPS	8
-
-	vec3_t	angles;
-	int		step, yawstep;
-	int		step_sections[9] = {32,28,24,20,16,12,8,4};
-
-	vec3_t	out_normals[256];
-	int		count=0;
-
-	if (maxclients->value > 1)
-		return;
-
-	VectorClear( angles );
-
-	// do the positive pitch step
-	for (step=0; step < NUM_PITCH_STEPS; step++)
-	{
-
-		angles[PITCH] = ((90.0 / NUM_PITCH_STEPS) * (float)step);
-
-		// go around the Z axis
-
-		for (yawstep=0; yawstep < step_sections[step]; yawstep++)
-		{
-
-			angles[YAW] = ((360.0 / step_sections[step]) * (float)yawstep);
-
-			AngleVectors( angles, out_normals[count++], NULL, NULL );
-
-		}
-
-	}
-
-	// do the negative pitch step
-	for (step=1; step < NUM_PITCH_STEPS; step++)
-	{
-
-		angles[PITCH] = ((90.0 / NUM_PITCH_STEPS) * (float)(-step));
-
-		// go around the Z axis
-
-		for (yawstep=0; yawstep < step_sections[step]; yawstep++)
-		{
-
-			angles[YAW] = ((360.0 / step_sections[step]) * (float)yawstep);
-
-			AngleVectors( angles, out_normals[count++], NULL, NULL );
-
-		}
-
-	}
-
-	gi.dprintf( "Anorm calculation completed, %i normals produced\n", count );
-
-	{
-		char	filename[MAX_QPATH];
-		int		i;
-		char	str[256];
-		FILE	*f;
-
-		// filename, eg: .\gamedir\routes\map01.nav
-		strcpy( filename, "\\kingpin\\source\\ref_gl\\x_anorms.h");
-
-		// try and open the file for writing
-		f = fopen ( filename, "wb");
-		if (!f) gi.error ("Couldn't open %s for writing.", filename);
-
-		for (i=0; i<count; i++)
-		{
-			sprintf( str, "{%f, %f, %f},\n", out_normals[i][0], out_normals[i][1], out_normals[i][2] );
-
-			fwrite( str, strlen(str), 1, f );
-		}
-
-		fclose(f);
-
-		gi.dprintf( "%s saved\n", filename );
-
-	}
-
-}
-
-#define	NUM_ANORMS	162		// old table only has 162
-
-vec3_t	anorms[NUM_ANORMS] = {
-#include "../client/anorms.h"
-};
-
-void Cmd_Adots_f (void)
-{
-	int	i, j;
-	float	adots[NUM_ANORMS][NUM_ANORMS];
-
-	for (i=0; i<NUM_ANORMS; i++)
-	{
-		for (j=0; j<NUM_ANORMS; j++)
-		{
-			adots[i][j] = DotProduct( anorms[i], anorms[j] );
-		}
-	}
-
-	gi.dprintf( "Adot calculation completed.\n" );
-
-	{
-		char	filename[MAX_QPATH];
-		int		i;
-		char	str[256];
-		FILE	*f;
-
-		// filename, eg: .\gamedir\routes\map01.nav
-		strcpy( filename, "\\kingpin\\source\\ref_gl\\x_adots.h");
-
-		// try and open the file for writing
-		f = fopen ( filename, "wb");
-		if (!f) gi.error ("Couldn't open %s for writing.", filename);
-
-		sprintf( str, "{\n" );
-		fwrite( str, strlen(str), 1, f );
-
-		for (i=0; i<NUM_ANORMS; i++)
-		{
-
-			sprintf( str, "{" );
-			fwrite( str, strlen(str), 1, f );
-
-			for (j=0; j<NUM_ANORMS; j++)
-			{
-				if (j > 0)
-				{
-					sprintf( str, ", " );
-					fwrite( str, strlen(str), 1, f );
-				}
-
-				sprintf( str, "%f", adots[i][j] );
-				fwrite( str, strlen(str), 1, f );
-			}
-
-			sprintf( str, "},\n" );
-			fwrite( str, strlen(str), 1, f );
-
-		}
-
-		sprintf( str, "}\n" );
-		fwrite( str, strlen(str), 1, f );
-
-		fclose(f);
-
-		gi.dprintf( "%s saved\n", filename );
-
-	}
-
-}
-
-//-------------------------------------------------------------
-#endif
-
-// Ridah
-extern void ED_CallSpawn (edict_t *ent);
-
-// Caution: if using this to spawn an entity that hasn't been precached, this will cause problems
-void Cmd_Spawn_f (edict_t *ent)
-{
-	edict_t *spawn;
-	char *name;
-	vec3_t	forward;
-
-	spawn = G_Spawn();
-
-	name = gi.args ();
-	spawn->classname = gi.TagMalloc(sizeof(name)+1, TAG_LEVEL);
-	strcpy( spawn->classname, name );
-
-	AngleVectors( ent->s.angles, forward, NULL, NULL);
-	VectorScale( forward, 64, forward );
-	forward[2] += 16;
-
-	VectorAdd( ent->s.origin, forward, spawn->s.origin );
-	VectorCopy( ent->s.angles, spawn->s.angles );
-
-	ED_CallSpawn (spawn);
-}
-
-//-------------------------------------------------------------
-
-void P_ClearProfanity ( edict_t *ent )
-{
-	ent->owner->profanity_level = 0;
-
-	G_FreeEdict( ent );
-}
-
-void Cmd_Speech_f (edict_t *ent, edict_t *other, char *cmd)
-{
-	static		float speechtime=0;
-	edict_t		*best=NULL;
-	cast_memory_t	*mem;
-
-	if (deathmatch->value)
-	{
-		cprintf (ent, PRINT_HIGH, "No speech in deathmatch\n");
-		return;
-	}
-
-	if (speechtime > (level.time - TALK_OTHER_DELAY) && speechtime < level.time)
-		return;
-
-	if (Q_stricmp (cmd, "key1") == 0)		// NEUTRAL
-	{
-		// JOSEPH 4-FEB-99 
-		ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_POSITIVE;
-		ent->client->hud_self_talk_time = level.time + 2.0;
-		// END JOSEPH	
-		
-		if ((other->svflags & SVF_MONSTER) && (other->cast_info.talk))
-			best = other;
-
-		if (best)
-		{
-			mem = level.global_cast_memory[best->character_index][ent->character_index];
-
-			if (!mem)
-			{
-				AI_RecordSighting( best, ent, VectorDistance( best->s.origin, ent->s.origin ) );
-			}
-
-//			if (strcmp (best->classname, "cast_bitch") == 0)
-//				Voice_Random( ent, best, f_neutral_talk_player, F_NUM_NEUTRAL_TALK_PLAYER );
-//			else
-				// Voice_Random( ent, best, neutral_talk_player, NUM_NEUTRAL_TALK_PLAYER );
-			Voice_Random( ent, best, neutral_talk_player, 5 );
-
-
-			// character should turn to us
-			best->cast_info.last_talk_turn = level.time;
-			best->cast_info.talk_ent = ent;
-
-			AI_CheckTalk( best );
-		}
-		else
-		{
-			cprintf(ent, PRINT_HIGH, "No-one to talk to.\n");
-		}
-	}
-	else if (Q_stricmp (cmd, "key3") == 0)		// AGGRESSIVE
-	{
-		// JOSEPH 4-FEB-99 
-		ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_NEGATIVE;
-		ent->client->hud_self_talk_time = level.time + 2.0;
-		// END JOSEPH
-		
-		if (	(other->svflags & SVF_MONSTER) 
-			&&	(other->cast_info.talk)
-			&&	(other->cast_group != ent->cast_group))
-		{
-			best = other;
-		}
-
-		if (best)
-		{
-
-			mem = level.global_cast_memory[best->character_index][ent->character_index];
-
-			if (!mem)
-			{
-				AI_RecordSighting( best, ent, VectorDistance( best->s.origin, ent->s.origin ) );
-			}
-
-			mem->flags |= MEMORY_ASSHOLE;
-
-			// Ridah, hack so Momo knows if we swear at him twice
-			if (best->name_index == NAME_MOMO)
-			{
-				if (mem->inc < 3)
-				{
-					mem->flags &= ~MEMORY_UPSET;	// clear it so we charge them 30 bucks
-				}
-
-				// if (ent->episode_flags & EP_SKIDROW_MOMO_ASKED_MONEY)
-				// 	mem->inc++;
-				EP_CheckMomo (ent, mem);
-
-			}
-
-			if (best->cast_group)
-			{
-				if (ent->profanity_level == 0)
-					Voice_Random( ent, best, player_profanity_level1, NUM_PLAYER_PROFANITY_LEVEL1 );
-				else if (ent->profanity_level == 1)
-					Voice_Random( ent, best, player_profanity_level2, NUM_PLAYER_PROFANITY_LEVEL2 );
-				else
-					Voice_Random( ent, best, player_profanity_level3, NUM_PLAYER_PROFANITY_LEVEL3 );
-
-				if (ent->profanity_level < 3)
-					ent->profanity_level++;
-
-				if (ent->profanity_level == 3)
-				{	// spawn an entity, that will return us to normal profanity in a second
-					edict_t *thinkent;
-
-					thinkent = G_Spawn();
-					thinkent->think = P_ClearProfanity;
-					thinkent->nextthink = level.time + 4.0;
-					thinkent->owner = ent;
-				}
-			}
-			else
-			{
-				Voice_Random( ent, best, player_profanity_level1, NUM_PLAYER_PROFANITY_LEVEL1 );
-			}
-
-			// character should turn to us
-			best->cast_info.last_talk_turn = level.time;	// so they don't look for AI characters
-			best->cast_info.talk_ent = ent;
-
-			AI_CheckTalk( best );
-		}
-		else
-		{
-			cprintf(ent, PRINT_HIGH, "No-one to abuse.\n");
-		}
-	}
-	else
-	{
-//		cprintf( ent, PRINT_HIGH, "Unknown Speech command\n" );
-		return;
-	}
-
-	speechtime = level.time;
-
-}
-
-/*
-==================
-Cmd_Order_f
-
-1. hold = Hold Position
-2. move = Move Out
-3. converge = Converge on my position
-===================
-*/
-edict_t *Order_MoveOut (edict_t *ent);
-
-qboolean FullGang (edict_t *player)
-{
-	edict_t	*ent;
-	cast_memory_t *mem;
-	int		i;
-	int		cnt = 0;
-	
-	for (i=1, ent=g_edicts+i ; i < globals.num_edicts ; i++,ent++)
-	{
-		if (ent->client)
-			continue;
-		if (!(ent->inuse))
-			continue;
-		if (ent->deadflag == DEAD_DEAD)
-			continue;
-		if (ent->cast_group != 1)
-			continue;
-		
-		mem = level.global_cast_memory [ent->character_index][player->character_index];
-		
-		if (mem && mem->flags & MEMORY_HIRED)
-			cnt++;
-
-		if (cnt == 2)
-			return true;
-
-	}
-
-	return false;
-}
-
-
-void Cmd_Order_f (edict_t *ent, edict_t *other, char *cmd)
-{
-	int			flags = 0;
-	static		float ordertime=0;
-	static		int last_voice;
-	qboolean	firstime = false;
-	
-	if (deathmatch->value)
-	{
-		cprintf (ent, PRINT_HIGH, "No orders in deathmatch\n");
-		return;
-	}
-
-	if (Q_stricmp (cmd, "key1") == 0)		// Stay Here
-		flags = ORDER_FOLLOWME;
-	else if (Q_stricmp (cmd, "key2") == 0)	// Attack
-		flags = ORDER_MOVE;
-	else if (Q_stricmp (cmd, "key3") == 0)	// Follow
-		flags = ORDER_HOLD;
-
-	ent->order = flags;
-	ent->order_timestamp = level.time;
-
-//	if (other->cast_info.aiflags & AI_TAKE_COVER)
-//		return;	// can't order a hiding dude
-
-	if (ent->client)
-	{
-		cast_memory_t *cast_memory;
-
-		cast_memory = level.global_cast_memory[other->character_index][ent->character_index];
-
-		if (!EP_HiredGuys (ent, other))
-		{
-			// Ridah, 21-may-99, so they make a talking jesture if they just said something
-			if (other->last_talk_time == level.time)
-				other->cast_info.talk( other );
-
-			return;
-		}
-
-		if (other->gender == GENDER_MALE)
-		{
-
-		// RAFAEL 02-18-99	
-		if (!(cast_memory->flags & MEMORY_HIRED)) // if the dude is not hired
-		{
-			if (flags == ORDER_MOVE)	// not a valid command
-				return;
-
-			// if (FullGang (ent)) // if the gang is full
-			if (ent->client->pers.friends >= 2)
-			{
-				if (other->last_talk_time < (level.time - 2) || last_voice != 6)
-					Voice_Random (other, ent, &hiredguy_specific[6], 2);
-
-				other->cast_info.talk( other );
-				last_voice = 6;
-				return;
-			}
-		}
-
-
-		if (!(cast_memory->flags & MEMORY_HIRE_FIRST_TIME))
-		{
-			cast_memory->flags |= MEMORY_HIRE_FIRST_TIME;
-			{
-				int rval;
-				rval = abs (other->currentcash);
-
-				// JOSEPH 19-FEB-99
-				if (flags == ORDER_FOLLOWME)
-				{
-					ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_YES;
-					ent->client->hud_self_talk_time = level.time + 2.0;
-				}
-				else if (flags == ORDER_HOLD)
-				{
-					ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_NO;
-					ent->client->hud_self_talk_time = level.time + 2.0;
-				}
-				// END JOSEPH
-				
-				// gi.dprintf ("yo man I'll follow ya fer %d bucks\n", rval);
-
-				if (other->last_talk_time < (level.time - 2) || last_voice != 1)
-					// this line chooses the correct sound to play.. (even switches between the first and second for consecutive calls)
-					Voice_Specific( other, ent, hiredguy_ask, ((rval / 25) * 2) + (hiredguy_ask[((rval / 25) * 2)].last_played > hiredguy_ask[((rval / 25) * 2) + 1].last_played) );
-
-
-				other->cast_info.talk( other );
-
-				last_voice = 1;
-
-				return;
-			}
-		}
-		
-		else if (!(cast_memory->flags & MEMORY_HIRE_ASK))
-		{
-			// JOSEPH 19-FEB-99
-			if (flags == ORDER_FOLLOWME)
-			{
-				ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_YES;
-				ent->client->hud_self_talk_time = level.time + 2.0;
-			}
-			else if (flags == ORDER_HOLD)
-			{
-				ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_NO;
-				ent->client->hud_self_talk_time = level.time + 2.0;
-			}
-			// END JOSEPH
-			
-			if (ent->client->pers.currentcash >= abs (other->currentcash))
-			{
-				if (flags == ORDER_FOLLOWME)
-				{
-					cast_memory->flags |= MEMORY_HIRE_ASK;
-
-	//					gi.dprintf ("so ya got the money?\n", abs (other->currentcash));
-
-					if (other->last_talk_time < (level.time - 2) || last_voice != 2)
-						// Voice_Specific( other, ent, hiredguy_specific, 0 + (hiredguy_specific[0].last_played > hiredguy_specific[1].last_played) );
-						Voice_Random (other, ent, hiredguy_specific, 2);
-
-
-					other->cast_info.talk( other );
-					last_voice = 2;
-
-					return;
-				}
-				else if (flags == ORDER_HOLD)
-				{
-	//					gi.dprintf ("yo man I'll be waiting for ya\n");
-					if (other->last_talk_time < (level.time - 2) || last_voice != 3)
-						// Voice_Specific( other, ent, hiredguy_specific, 4 + (hiredguy_specific[4].last_played > hiredguy_specific[5].last_played) );
-						Voice_Random (other, ent, &hiredguy_specific[4], 2);
-
-					other->cast_info.talk( other );
-					last_voice = 3;
-					return;
-				}
-				else	// invalid response
-				{
-					gi.dprintf( "\nInvalid response.\nkey1 = YES\nkey3 = NO\n" );
-					return;
-				}
-			}
-			else
-			{
-	//				gi.dprintf ("yo man come to me when you got %d bucks\n", abs (other->currentcash));
-				if (other->last_talk_time < (level.time - 2) || last_voice != 4)
-					Voice_Random( other, ent, &hiredguy_specific[11], 3 );
-
-				other->cast_info.talk( other );
-				last_voice = 4;
-				return;
-			}
-		}
-		
-		else if (!(cast_memory->flags & MEMORY_HIRED))
-		{
-			// JOSEPH 19-FEB-99
-			if (flags == ORDER_HOLD)
-			{
-				ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_NO;
-				ent->client->hud_self_talk_time = level.time + 2.0;
-			}
-			else if (flags == ORDER_FOLLOWME)
-			{
-				ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_YES;
-				ent->client->hud_self_talk_time = level.time + 2.0;
-			}
-			// END JOSEPH
-			
-			// JOSEPH 3-FEB-99 
-			if (ent->client->pers.currentcash >= abs (other->currentcash))
-			{
-				if (flags == ORDER_FOLLOWME)
-				{	// give them the money
-					extern mmove_t	thug_move_crch_grab;
-
-					cast_memory->flags |= MEMORY_HIRED;
-					ent->client->pers.currentcash -= abs (other->currentcash);
-					
-					// other->currentcash = abs(other->currentcash);
-					other->currentcash = 0;
-
-					ent->client->pers.friends++;
-
-					if (!strcmp(other->classname, "cast_thug"))
-					{
-						other->cast_info.currentmove = &thug_move_crch_grab;
-					}
-
-					other->cast_info.aiflags |= AI_NOWALK_FACE;
-
-					// we just hired them, by default they should follow us
-					flags = ORDER_FOLLOWME;
-					firstime = true;
-
-					EP_HiredGuysRegisterFlags (ent, other);
-				}
-				else if (flags == ORDER_HOLD)
-				{
-	//					gi.dprintf ("yo man I'll be here if you change your mind\n");
-					
-					cast_memory->flags &= ~MEMORY_HIRE_ASK;
-
-					if (other->last_talk_time < (level.time - 2) || last_voice != 5)
-						Voice_Specific( other, ent, hiredguy_specific, 2 );
-					other->cast_info.talk( other );
-					last_voice = 5;
-					return;
-				}
-			}
-			// END JOSEPH
-			else
-			{
-	//				gi.dprintf ("yo man come to me when you got %d bucks\n", abs (other->currentcash));
-				if (other->last_talk_time < (level.time - 2) || last_voice != 6)
-					Voice_Specific( other, ent, hiredguy_specific, 3 );
-				other->cast_info.talk( other );
-				last_voice = 6;
-				return;
-			}
-		}
-	}
-		else // GENDER_FEMALE
-		{
-					// RAFAEL 02-18-99	
-			if (!(cast_memory->flags & MEMORY_HIRED)) // if the dude is not hired
-			{
-				if (flags == ORDER_MOVE)	// not a valid command
-					return;
-
-				// if (FullGang (ent)) // if the gang is full
-				if (ent->client->pers.friends >= 2)
-				{
-					if (other->last_talk_time < (level.time - 2) || last_voice != 6)
-						Voice_Random (other, ent, &hiredgal_specific[6], 2);
-
-					other->cast_info.talk( other );
-					last_voice = 6;
-					return;
-				}
-			}
-
-
-			if (!(cast_memory->flags & MEMORY_HIRE_FIRST_TIME))
-			{
-				cast_memory->flags |= MEMORY_HIRE_FIRST_TIME;
-				{
-					int rval;
-					rval = abs (other->currentcash);
-
-					// JOSEPH 19-FEB-99
-					if (flags == ORDER_FOLLOWME)
-					{
-						ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_YES;
-						ent->client->hud_self_talk_time = level.time + 2.0;
-					}
-					else if (flags == ORDER_HOLD)
-					{
-						ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_NO;
-						ent->client->hud_self_talk_time = level.time + 2.0;
-					}
-					// END JOSEPH
-					
-					// gi.dprintf ("yo man I'll follow ya fer %d bucks\n", rval);
-
-					if (other->last_talk_time < (level.time - 2) || last_voice != 1)
-						// this line chooses the correct sound to play.. (even switches between the first and second for consecutive calls)
-						Voice_Specific( other, ent, hiredgal_ask, ((rval / 25) * 2) + (hiredgal_ask[((rval / 25) * 2)].last_played > hiredgal_ask[((rval / 25) * 2) + 1].last_played) );
-
-
-					other->cast_info.talk( other );
-
-					last_voice = 1;
-
-					return;
-				}
-			}
-			
-			else if (!(cast_memory->flags & MEMORY_HIRE_ASK))
-			{
-				// JOSEPH 19-FEB-99
-				if (flags == ORDER_FOLLOWME)
-				{
-					ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_YES;
-					ent->client->hud_self_talk_time = level.time + 2.0;
-				}
-				else if (flags == ORDER_HOLD)
-				{
-					ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_NO;
-					ent->client->hud_self_talk_time = level.time + 2.0;
-				}
-				// END JOSEPH
-				
-				if (ent->client->pers.currentcash >= abs (other->currentcash))
-				{
-					if (flags == ORDER_FOLLOWME)
-					{
-						cast_memory->flags |= MEMORY_HIRE_ASK;
-
-	//					gi.dprintf ("so ya got the money?\n", abs (other->currentcash));
-
-						if (other->last_talk_time < (level.time - 2) || last_voice != 2)
-							// Voice_Specific( other, ent, hiredguy_specific, 0 + (hiredguy_specific[0].last_played > hiredguy_specific[1].last_played) );
-							Voice_Random (other, ent, hiredgal_specific, 2);
-
-
-						other->cast_info.talk( other );
-						last_voice = 2;
-
-						return;
-					}
-					else if (flags == ORDER_HOLD)
-					{
-	//					gi.dprintf ("yo man I'll be waiting for ya\n");
-						if (other->last_talk_time < (level.time - 2) || last_voice != 3)
-							// Voice_Specific( other, ent, hiredguy_specific, 4 + (hiredguy_specific[4].last_played > hiredguy_specific[5].last_played) );
-							Voice_Random (other, ent, &hiredgal_specific[4], 2);
-
-						other->cast_info.talk( other );
-						last_voice = 3;
-						return;
-					}
-					else	// invalid response
-					{
-						gi.dprintf( "\nInvalid response.\nkey1 = YES\nkey3 = NO\n" );
-						return;
-					}
-				}
-				else
-				{
-	//				gi.dprintf ("yo man come to me when you got %d bucks\n", abs (other->currentcash));
-					if (other->last_talk_time < (level.time - 2) || last_voice != 4)
-						Voice_Specific( other, ent, hiredgal_specific, 3 );
-
-					other->cast_info.talk( other );
-					last_voice = 4;
-					return;
-				}
-			}
-			
-			else if (!(cast_memory->flags & MEMORY_HIRED))
-			{
-				// JOSEPH 19-FEB-99
-				if (flags == ORDER_HOLD)
-				{
-					ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_NO;
-					ent->client->hud_self_talk_time = level.time + 2.0;
-				}
-				else if (flags == ORDER_FOLLOWME)
-				{
-					ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_YES;
-					ent->client->hud_self_talk_time = level.time + 2.0;
-				}
-				// END JOSEPH
-				
-				// JOSEPH 3-FEB-99 
-				if (ent->client->pers.currentcash >= abs (other->currentcash))
-				{
-					if (flags == ORDER_FOLLOWME)
-					{	// give them the money
-						extern mmove_t	thug_move_crch_grab;
-
-						cast_memory->flags |= MEMORY_HIRED;
-						ent->client->pers.currentcash -= abs (other->currentcash);
-						
-						// other->currentcash = abs(other->currentcash);
-						other->currentcash = 0;
-
-						ent->client->pers.friends++;
-
-						/*
-						if (!strcmp(other->classname, "cast_thug"))
-						{
-							other->cast_info.currentmove = &thug_move_crch_grab;
-						}
-						*/
-
-						other->cast_info.aiflags |= AI_NOWALK_FACE;
-
-						// we just hired them, by default they should follow us
-						flags = ORDER_FOLLOWME;
-						firstime = true;
-
-
-						EP_HiredGuysRegisterFlags (ent, other);
-					}
-					else if (flags == ORDER_HOLD)
-					{
-	//					gi.dprintf ("yo man I'll be here if you change your mind\n");
-						
-						cast_memory->flags &= ~MEMORY_HIRE_ASK;
-
-						if (other->last_talk_time < (level.time - 2) || last_voice != 5)
-							Voice_Specific( other, ent, hiredgal_specific, 2 );
-						other->cast_info.talk( other );
-						last_voice = 5;
-						return;
-					}
-				}
-				// END JOSEPH
-				else
-				{
-	//				gi.dprintf ("yo man come to me when you got %d bucks\n", abs (other->currentcash));
-					if (other->last_talk_time < (level.time - 2) || last_voice != 6)
-						Voice_Specific( other, ent, hiredgal_specific, 3 );
-					other->cast_info.talk( other );
-					last_voice = 6;
-					return;
-				}
-			}
-		}
-	}
-
-	// if in bar, don't allow killing
-	if (flags == ORDER_MOVE && level.bar_lvl)
-	{
-		// gi.dprintf("SOUND TODO: No killing in the bar\n");
-		return;
-	}
-
-	// this should help with the friendly guys not showing up when you change level
-	other->spawnflags &= ~2; 
-	other->currentcash = 0;
-	other->leader = ent;
-
-	other->cast_info.aiflags &= ~(AI_MOVEOUT | AI_HOLD_POSITION);
-	other->cast_info.aiflags &= ~AI_NOWALK_FACE;
-
-	if (other->holdpos_ent)
-	{
-		G_FreeEdict( other->holdpos_ent );
-		other->holdpos_ent = NULL;
-	}
-
-	if (flags == ORDER_MOVE)
-	{
-		if (EP_DoKey (ent, other))
-		{
-			ent->cast_info.aiflags |= AI_DOKEY;
-			other->cast_info.aiflags |= AI_DOKEY;
-		}
-		else
-		{
-		ent->cast_info.aiflags |= AI_MOVEOUT;
-		other->cast_info.aiflags |= AI_MOVEOUT;
-
-		if (ent->moveout_ent)
-		{	// in case it was set before, kill it
-			ent->moveout_ent = NULL;
-		}
-	}
-	}
-
-	if (ordertime > level.time)		// changed levels
-		ordertime = 0;
-
-	switch (flags)
-	{
-	case ORDER_MOVE :
-		{
-			if (ordertime < (level.time - 0.5))
-			{
-				Voice_Random( ent, other, m_response, NUM_MOVEOUT );
-			}
-			break;
-		}
-	case ORDER_HOLD :
-		{
-			if (ordertime < (level.time - 0.5))
-				Voice_Random( ent, other, holdposition, NUM_HOLDPOSITION );
-			other->cast_info.aiflags |= AI_HOLD_POSITION;
-			other->cast_info.aiflags |= AI_NOWALK_FACE;
-
-			// remember this position
-			if (!other->holdpos_ent)
-				other->holdpos_ent = G_Spawn();
-
-			VectorCopy( other->s.origin, other->holdpos_ent->s.origin );
-
-			break;
-		}
-	case ORDER_FOLLOWME :
-		{
-			if (firstime)
-			{
-				if (other->gender == GENDER_FEMALE)
-					Voice_Random( other, ent, &hiredgal_specific[8], 3);
-				else
-					Voice_Specific( other, ent, hiredguy_specific, (rand()%3) + 8 );
-//				gi.dprintf ("ok I'll go with ya\n");
-			}
-			else if (ordertime < (level.time - 0.5))
-				Voice_Random( ent, other, followme, NUM_FOLLOWME );
-
-			if (other->cast_info.aiflags & AI_TAKE_COVER)
-			{
-				other->cast_info.aiflags &= ~(AI_TAKE_COVER|AI_TAKECOVER_IGNOREHEALTH);
-			}
-
-			break;
-		}
-		
-		// JOSEPH 19-FEB-99 
-		if ((flags) && (!ent->client->hud_self_talk_time == (level.time + 2.0)) &&
-			(!((ent->client->ps.stats[STAT_HUD_SELF_TALK] == TT_YES) || 
-			(ent->client->ps.stats[STAT_HUD_SELF_TALK] == TT_NO))))
-		{
-		ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_COMMAND;
-		ent->client->hud_self_talk_time = level.time + 2.0;
-		}
-		// END JOSEPH	
-	}
-
-	if (ordertime < (level.time - 0.5))
-		ordertime = level.time;
-}
-
 //-------------------------------------------------------------------------
 // Generic "3-key" system
-
-edict_t *key_ent;
 
 // JOSEPH 8-FEB-99
 edict_t	*GetKeyEnt( edict_t *ent )
@@ -1632,21 +182,14 @@ edict_t	*GetKeyEnt( edict_t *ent )
 	VectorCopy( ent->s.origin, start );
 	start[2] += ent->viewheight;
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		VectorMA( start, 4000, dir, end );
 	else
 		VectorMA( start, 384, dir, end );
 
-	tr = gi.trace( start, NULL, NULL, end, ent, CONTENTS_MONSTER );
-
-	if ((tr.fraction < 1) && ((deathmatch->value && tr.ent->client) || (tr.ent->svflags & SVF_MONSTER)) && (tr.ent->name_index == NAME_MOMO))
-	{
-		return tr.ent;
-	}
-
 	tr = gi.trace( start, NULL, NULL, end, ent, MASK_SHOT );
 
-	if ((tr.fraction < 1) && ((deathmatch->value && tr.ent->client) || (tr.ent->svflags & SVF_MONSTER)))
+	if ((tr.fraction < 1) && ((deathmatch_value && tr.ent->client) || (tr.ent->svflags & SVF_MONSTER)))
 	{
 		return tr.ent;
 	}
@@ -1659,100 +202,22 @@ void Cmd_Wave_f (edict_t *ent, edict_t *other, int who);
 
 void Cmd_Key_f (edict_t *ent, int who)
 {
-	char		*cmd;
+	edict_t *key_ent;
 
 	if (disable_curse) return;
 
-    if (ent->client->pers.spectator==SPECTATING) return;
+	if (ent->client->pers.spectator == SPECTATING) return;
 	
 	if (level.speaktime > level.time)
 		return;
 	
-	cmd = gi.argv (0);
+	if (unlimited_curse) key_ent = NULL;
+	else if (!(key_ent = GetKeyEnt(ent))) return;
 
-    key_ent = GetKeyEnt( ent );
+	Cmd_Wave_f( ent, key_ent, who );
 
-	//if (key_ent = GetKeyEnt( ent ))
-	{
-		void Cmd_Wave_f (edict_t *ent, edict_t *other, int who);
-		cast_memory_t *mem;
-
-		if (deathmatch->value)
-		{
-            if(unlimited_curse)key_ent=NULL;
-            else
-            {
-                if(!key_ent)return;
-            }
-			Cmd_Wave_f( ent, key_ent, who );
-            if(unlimited_curse)
-                level.speaktime = level.time + 7;
-			return;
-		}
-        if(key_ent)
-        {
-            // JOSEPH 18-FEB-99 
-            ent->client->ps.stats[STAT_HUD_SELF_TALK] = TT_COMMAND;
-            ent->client->hud_self_talk_time = level.time + 2.0;
-            // END JOSEPH	
-            
-            mem = level.global_cast_memory[key_ent->character_index][ent->character_index];
-            
-            if (!mem)
-                return;
-            
-            if (mem->memory_type == MEMORY_TYPE_FRIEND)
-            {	// issuing an order
-                
-                Cmd_Order_f( ent, key_ent, cmd );
-                
-                if (key_ent->targetname)
-                    key_ent->targetname = 0;
-                if (key_ent->spawnflags & 2)
-                    key_ent->spawnflags &=~ 2;
-                
-            }
-            else if (mem->response)		// we're responding to a question
-            {
-                response_t resp;
-                
-                if (Q_stricmp (cmd, "key1") == 0)
-                    resp = resp_yes;
-                else if (Q_stricmp (cmd, "key3") == 0)
-                    resp = resp_no;
-                
-                mem->response( ent, key_ent, resp );
-                
-            }
-            else	// normal discussion
-            {
-                
-                Cmd_Speech_f ( ent, key_ent, cmd );
-                
-            }
-        }
-
-	}
-    if(!key_ent)
-	//else	// noone to talk to, so make it an order in case anyone's listening
-	{
-		int flags;
-
-		if (Q_stricmp (cmd, "key1") == 0)		// Stay Here
-			flags = ORDER_FOLLOWME;
-		else if (Q_stricmp (cmd, "key2") == 0)	// Attack
-			flags = ORDER_MOVE;
-		else if (Q_stricmp (cmd, "key3") == 0)	// Follow
-			flags = ORDER_HOLD;
-			
-
-		ent->order = flags;
-		ent->order_timestamp = level.time;
-	}
-
-
-	level.speaktime = level.time + 7;
-
+	if (unlimited_curse)
+		level.speaktime = level.time + 7;
 }
 
 //-------------------------------------------------------------------------
@@ -1766,77 +231,14 @@ void Cmd_ToggleCam_f ( edict_t *ent )
 	}
 	else
 	{
-//		ent->flags += FL_CHASECAM;
+		ent->flags += FL_CHASECAM;
 
-		gi.centerprintf( ent, "Chasecam is incomplete, and therefore\nunsupported at this stage\n" );
+//		gi.centerprintf( ent, "Chasecam is incomplete, and therefore\nunsupported at this stage\n" );
 	}
 }
 // done.
 
-// JOSEPH 13-APR-99
-void Cmd_SetProps_f (int status)
-{
-	edict_t	*e;
-	int		i;
-					
-	for (i=1, e=g_edicts+i ; i < globals.num_edicts ; i++,e++)
-	{
-		if ((e->svflags & SVF_PROP) && (e->option))
-		{
-			if (status)
-			{
-				e->svflags |= SVF_NOCLIENT;
-				e->solid = SOLID_NOT;
-			}
-			else
-			{
-				e->svflags &= ~SVF_NOCLIENT;	
-				e->solid = e->savesolid;
-			}
-		}
-	}
-}
-// END JOSEPH
-
-// JOSEPH 23-MAR-99
-void Cmd_FryAll_f (edict_t *ent)
-{
-	edict_t	*e = NULL;
-
-	if (deathmatch->value)
-		return;
-
-	while (e = findradius(e, ent->s.origin, 512))
-	{
-		if (e->svflags & SVF_MONSTER)
-		{
-			e->onfiretime = 100;
-			e->onfireent = e;
-
-			if (e->gender == GENDER_FEMALE)
-			{
-				Voice_Random (e, e, &female_specific[6], 2); 
-			}
-			else if (e->gender == GENDER_MALE)
-			{
-				Voice_Random (e, e, &male_specific[10], 2); 
-			}
-
-			e->pain_debounce_time = level.time + 5;
-
-			if (e->cast_info.catch_fire)
-			{
-				e->cast_info.catch_fire(e, e);
-			}
-
-			e->s.renderfx2 &= ~RF2_DIR_LIGHTS;		
-		}
-	}
-}
-// END JOSEPH
-
 // ==============================================================================
-// Quake2 code follows:
 
 char *ClientTeam (edict_t *ent)
 {
@@ -1893,42 +295,20 @@ qboolean OnSameTeam (edict_t *ent1, edict_t *ent2)
 void SelectNextItem (edict_t *ent, int itflags)
 {
 	gclient_t	*cl;
-//	int			i, index;
-//	gitem_t		*it;
-	int			num_vote_set;
 
 // Papa - this is used to move down the vote map menu
 
-	num_vote_set = num_custom_maps;
-	if (num_vote_set > 8)
-		num_vote_set = 8;
 	if (ent->client->showscores == SCORE_MAP_VOTE)
 	{
-		if (level.framenum > (ent->switch_teams_frame + 4))
+		if (level.framenum >= (ent->client->resp.scoreboard_frame + 2))
 		{
-			ent->vote++;
-			if (ent->vote == num_vote_set+1)
-				ent->vote = 1;
-			ent->switch_teams_frame = level.framenum;
-			DeathmatchScoreboard (ent);
+			ent->client->mapvote++;
+			if (ent->client->mapvote == num_vote_set+1)
+				ent->client->mapvote = 1;
+			ent->client->resp.scoreboard_frame = 0;
 		}
 		return;
 	}
-
-	if (ent->client->showscores == SCORE_REJOIN)
-	{
-		if (level.framenum > (ent->switch_teams_frame + 4))
-		{
-			if (ent->vote == 0)
-				ent->vote = 1;
-			else
-				ent->vote = 0;
-			ent->switch_teams_frame = level.framenum;
-			DeathmatchScoreboard (ent);
-		}
-		return;
-	}
-
 
 	cl = ent->client;
 	
@@ -1936,69 +316,28 @@ void SelectNextItem (edict_t *ent, int itflags)
 	{
 		ChaseNext(ent);
 		return;
-	} else
-		Cmd_Help_f (ent, 1);
-/*
-	// scan  for the next valid one
-	for (i=1 ; i<=MAX_ITEMS ; i++)
-	{
-		index = (cl->pers.selected_item + i)%MAX_ITEMS;
-		if (!cl->pers.inventory[index])
-			continue;
-		it = &itemlist[index];
-		if (!it->use)
-			continue;
-		if (!(it->flags & itflags))
-			continue;
-
-		cl->pers.selected_item = index;
-		return;
 	}
 
-	cl->pers.selected_item = -1;
-*/
+	Cmd_Help_f (ent, 1);
 }
 
 void SelectPrevItem (edict_t *ent, int itflags)
 {
 	gclient_t	*cl;
-//	int			i, index;
-//	gitem_t		*it;
-	int			num_vote_set;
-
 
 // Papa - this is used to move up the vote map menu
 
-	num_vote_set = num_custom_maps;
-	if (num_vote_set > 8)
-		num_vote_set = 8;
 	if (ent->client->showscores == SCORE_MAP_VOTE)
 	{
-		if (level.framenum > (ent->switch_teams_frame + 4))
+		if (level.framenum >= (ent->client->resp.scoreboard_frame + 2))
 		{
-			ent->vote--;
-			if (ent->vote < 1)
-				ent->vote = num_vote_set;
-			ent->switch_teams_frame = level.framenum;
-			DeathmatchScoreboard (ent);
+			ent->client->mapvote--;
+			if (ent->client->mapvote < 1)
+				ent->client->mapvote = num_vote_set;
+			ent->client->resp.scoreboard_frame = 0;
 		}
 		return;
 	}
-
-	if (ent->client->showscores == SCORE_REJOIN)
-	{
-		if (level.framenum > (ent->switch_teams_frame + 4))
-		{
-			if (ent->vote == 0)
-				ent->vote = 1;
-			else
-				ent->vote = 0;
-			ent->switch_teams_frame = level.framenum;
-			DeathmatchScoreboard (ent);
-		}
-		return;
-	}
-	
 
 	cl = ent->client;
 
@@ -2006,27 +345,9 @@ void SelectPrevItem (edict_t *ent, int itflags)
 	{
 		ChasePrev(ent);
 		return;
-	} else
-		Cmd_Help_f (ent, 1);
-/*
-	// scan  for the next valid one
-	for (i=1 ; i<=MAX_ITEMS ; i++)
-	{
-		index = (cl->pers.selected_item + MAX_ITEMS - i)%MAX_ITEMS;
-		if (!cl->pers.inventory[index])
-			continue;
-		it = &itemlist[index];
-		if (!it->use)
-			continue;
-		if (!(it->flags & itflags))
-			continue;
-
-		cl->pers.selected_item = index;
-		return;
 	}
 
-	cl->pers.selected_item = -1;
-*/
+	Cmd_Help_f (ent, 1);
 }
 
 void ValidateSelectedItem (edict_t *ent)
@@ -2060,7 +381,7 @@ void Cmd_Give_f (edict_t *ent)
 	if (!developer->value)
 		return;
 
-	if (deathmatch->value && !sv_cheats->value)
+	if (deathmatch_value && !sv_cheats->value)
 	{
 		cprintf (ent, PRINT_HIGH, "You must run the server with '+set cheats 1' to enable this command.\n");
 		return;
@@ -2168,20 +489,6 @@ void Cmd_Give_f (edict_t *ent)
 
 			return;
 	}
-
-	/*if (give_all || Q_stricmp(name, "Power Shield") == 0)
-	{
-		it = FindItem("Power Shield");
-		it_ent = G_Spawn();
-		it_ent->classname = it->classname;
-		SpawnItem (it_ent, it);
-		Touch_Item (it_ent, ent, NULL, NULL);
-		if (it_ent->inuse)
-			G_FreeEdict(it_ent);
-
-		if (!give_all)
-			return;
-	}*/
 	// END JOSEPH
 
 	if (give_all)
@@ -2258,7 +565,7 @@ void Cmd_God_f (edict_t *ent)
 	if (!developer->value)
 		return;
 
-	if (deathmatch->value && !sv_cheats->value)
+	if (deathmatch_value && !sv_cheats->value)
 	{
 		cprintf (ent, PRINT_HIGH, "You must run the server with '+set cheats 1' to enable this command.\n");
 		return;
@@ -2290,7 +597,7 @@ void Cmd_Notarget_f (edict_t *ent)
 	if (!developer->value)
 		return;
 
-	if (deathmatch->value && !sv_cheats->value)
+	if (deathmatch_value && !sv_cheats->value)
 	{
 		cprintf (ent, PRINT_HIGH, "You must run the server with '+set cheats 1' to enable this command.\n");
 		return;
@@ -2320,7 +627,7 @@ void Cmd_Noclip_f (edict_t *ent)
 	if (!developer->value)
 		return;
 
-	if (deathmatch->value && !sv_cheats->value)
+	if (deathmatch_value && !sv_cheats->value)
 	{
 		cprintf (ent, PRINT_HIGH, "You must run the server with '+set cheats 1' to enable this command.\n");
 		return;
@@ -2353,10 +660,8 @@ void Cmd_Use_f (edict_t *ent)
 	gitem_t		*it;
 	char		*s;	
 	int			index;
-	int			i, z;
 
 	s = gi.args();
-	// Teamplay
 
 // Papa
 // Kingpin uses whatever key your weapon is bound to, to work its menus
@@ -2364,112 +669,68 @@ void Cmd_Use_f (edict_t *ent)
 
     if (ent->client->showscores == SCORE_MAP_VOTE)  // next map vote menu
 	{
-		if (level.framenum > (ent->switch_teams_frame + 4))
-			if (s)
+		if (s && level.framenum >= (ent->client->resp.scoreboard_frame + 2))
+		{
+			int vote=0;
+			if (!strcmp(s, "pipe"))
+				vote = 1;
+			if (!strcmp(s, "pistol"))
+				vote = 2;
+			if (!strcmp(s, "shotgun"))
+				vote = 3;
+			if (!strcmp(s, "tommygun"))
+				vote = 4;
+			if (!strcmp(s, "heavy machinegun"))
+				vote = 5;
+			if (!strcmp(s, "grenade launcher"))
+				vote = 6;
+			if (!strcmp(s, "bazooka"))
+				vote = 7;
+			if (!strcmp(s, "flamethrower"))
+				vote = 8;
+			if (vote > 0 && vote <= num_vote_set)
 			{
-				if (!strcmp(s, "pipe"))
-					ent->vote = 1;
-				if (!strcmp(s, "pistol"))
-					ent->vote = 2;
-				if (!strcmp(s, "shotgun"))
-					ent->vote = 3;
-				if (!strcmp(s, "tommygun"))
-					ent->vote = 4;
-				if (!strcmp(s, "heavy machinegun"))
-					ent->vote = 5;
-				if (!strcmp(s, "grenade launcher"))
-					ent->vote = 6;
-				if (!strcmp(s, "bazooka"))
-					ent->vote = 7;
-				if (!strcmp(s, "flamethrower"))
-					ent->vote = 8;
-				ent->switch_teams_frame = level.framenum;
-				DeathmatchScoreboard (ent);
-			}
-		return;
-	}
-			
-
-	if (ent->client->showscores == SCORE_REJOIN) // restores players frags, time, etc after they disconnect
-	{
-		if (s) {
-			index = -1;
-			for (i=0;i<level.player_num;i++)
-			{
-				if (Q_stricmp (ent->client->pers.netname,playerlist[i].netname) == 0)
-					index = i;
-			}
-
-			if (!strcmp(s, "pipe") && index!=-1)
-			{
-				ent->client->resp.score = playerlist[index].frags;
-				ent->client->resp.deposited = playerlist[index].deposits;
-               
-                ent->client->resp.acchit = playerlist[index].acchit;
-                ent->client->resp.accshot = playerlist[index].accshot;
-                ent->client->pers.mute = playerlist[index].mute;
-                //do the fav too
-                for(z=0;z<8;z++)
-                {
-                    ent->client->resp.fav[z] = playerlist[index].fav[z];
-                }
-
-				ent->client->pers.team = playerlist[index].team;
-				ent->client->resp.enterframe -= playerlist[index].time;
-				ent->client->pers.spectator = PLAYING;
-				ent->flags &= ~FL_GODMODE;
-				ent->health = 0;
-				meansOfDeath = MOD_RESTART;
-				ent->solid = SOLID_NOT;
-//				player_die (ent, ent, ent, 1, vec3_origin, 0, 0);
-				PutClientInServer( ent );	
-			} else {
-				if (teamplay->value)
-					ent->client->showscores = SCOREBOARD;
-				else {
-					ent->client->pers.spectator = PLAYING;
-					ent->flags &= ~FL_GODMODE;
-					ent->health = 0;
-					meansOfDeath = MOD_RESTART;
-					ent->solid = SOLID_NOT;
-//					player_die (ent, ent, ent, 1, vec3_origin, 0, 0);
-					PutClientInServer( ent );	
-				}
-			}
-			if (index!=-1) {
-				for (i=level.player_num; i>index; i--)
-					playerlist[i-1] = playerlist[i];
-				level.player_num--;
+				ent->client->mapvote = vote;
+				ent->client->resp.scoreboard_frame = 0;
 			}
 		}
 		return;
-	}	
-	else if ((teamplay->value) && ((!ent->client->pers.team) || (level.modeset == MATCHSETUP) || (level.modeset == FINALCOUNT) || (level.modeset == FREEFORALL)))
+	}
+			
+	if (ent->client->showscores == SCORE_REJOIN) // restores players frags, time, etc after they disconnect
 	{
-//		if (level.framenum > (ent->switch_teams_frame + 20)) // Kingpin's join team menu
-			if (s)
-			{
-				if (!strcmp(s, "pipe"))
-				{	// Kings
-					Cmd_Join_f( ent, team_names[1] );
-//					ent->switch_teams_frame = level.framenum;
-				}
-				else if (!strcmp(s, "pistol"))
-				{	// Pins
-					Cmd_Join_f( ent, team_names[2] );
-//					ent->switch_teams_frame = level.framenum;
-				}
+		if (s)
+		{
+			if (!strcmp(s, "pipe"))
+				ClientRejoin(ent, true);
+			else if (!strcmp(s, "pistol"))
+				ClientRejoin(ent, false);
+		}
+		return;
+	}
+	else if (teamplay->value && (!ent->client->pers.team || level.modeset == MATCHSETUP || level.modeset == PREGAME))
+	{
+		if (s)
+		{
+			if (!strcmp(s, "pipe"))
+			{	// Kings
+				Cmd_Join_f( ent, team_names[1] );
 			}
+			else if (!strcmp(s, "pistol"))
+			{	// Pins
+				Cmd_Join_f( ent, team_names[2] );
+			}
+		}
 		return;
 	}
 
-	if (ent->client->pers.spectator == SPECTATING) {
+	if (ent->client->pers.spectator == SPECTATING)
+	{
 		if (!teamplay->value) Cmd_Join_f( ent, "" );
 		return;
 	}
 
-  /*  if((teamplay->value) && (ent->client->pers.team>0) && (level.modeset==FINALCOUNT))
-        return;*/
+	if (ent->solid == SOLID_NOT) return;
 
 	it = FindItem (s);
 	if (!it)
@@ -2510,28 +771,9 @@ void Cmd_Use_f (edict_t *ent)
 		}
 	}
 
-	if (ent->client->pers.holsteredweapon)
-	{
-		if (level.bar_lvl)
-			return;
-		
-		if (ent->client->pers.holsteredweapon == it)
-		{
-			ent->client->newweapon = ent->client->pers.holsteredweapon;
-			ChangeWeapon (ent);
-			ent->client->pers.holsteredweapon = 0;
-			return;	
-		}
-		else
-		{
-			ent->client->pers.weapon = ent->client->pers.holsteredweapon; 
-			ent->client->pers.holsteredweapon = NULL;
-		}
-	}
-
 	it->use (ent, it);
 
-	if (!ent->client->pers.holsteredweapon && !ent->client->pers.weapon && ent->client->newweapon)
+	if (!ent->client->pers.weapon && ent->client->newweapon)
 	{
 		ChangeWeapon (ent);
 	}
@@ -2551,7 +793,7 @@ void Cmd_Drop_f (edict_t *ent)
 	gitem_t		*it;
 	char		*s;
 
-	if (ent->client->pers.spectator!=PLAYING) return;
+	if (ent->solid == SOLID_NOT) return;
 
 	s = gi.args();
 	it = FindItem (s);
@@ -2611,7 +853,6 @@ void Cmd_Inven_f (edict_t *ent)
 	cl = ent->client;
 
 	cl->showscores = NO_SCOREBOARD;
-	cl->showhelp = false;
 
 	if (cl->showinventory)
 	{
@@ -2637,63 +878,7 @@ Cmd_InvUse_f
 void Cmd_InvUse_f (edict_t *ent)
 {
 	gitem_t		*it;
-    int         z;
 
-
-	if (ent->client->showscores == SCORE_REJOIN) 
-	{
-		int			i, index=-1;
-		for (i=0;i<level.player_num;i++)
-		{
-			if (Q_stricmp (ent->client->pers.netname,playerlist[i].netname) == 0)
-				index = i;
-		}
-
-		if (ent->vote == 0 && index!=-1)
-		{
-			ent->client->resp.score = playerlist[index].frags;
-			ent->client->resp.deposited = playerlist[index].deposits;
-
-            ent->client->resp.acchit = playerlist[index].acchit;
-            ent->client->resp.accshot = playerlist[index].accshot;
-            //do the fav too
-            for(z=0;z<8;z++)
-            {
-               ent->client->resp.fav[z] = playerlist[index].fav[z];
-            }
-
-			ent->client->pers.team = playerlist[index].team;
-			ent->client->resp.enterframe -= playerlist[index].time;
-			ent->client->pers.spectator = PLAYING;
-			ent->flags &= ~FL_GODMODE;
-			ent->health = 0;
-			meansOfDeath = MOD_RESTART;
-			ent->solid = SOLID_NOT;
-//			player_die (ent, ent, ent, 1, vec3_origin, 0, 0);
-			PutClientInServer( ent );	
-		} else {
-			if (teamplay->value)
-				ent->client->showscores = SCOREBOARD;
-			else {
-				ent->client->pers.spectator = PLAYING;
-				ent->flags &= ~FL_GODMODE;
-				ent->health = 0;
-				meansOfDeath = MOD_RESTART;
-				ent->solid = SOLID_NOT;
-//				player_die (ent, ent, ent, 1, vec3_origin, 0, 0);
-				PutClientInServer( ent );	
-			}
-		}
-
-		if (index!=-1) {
-			for (i=level.player_num; i>index; i--)
-				playerlist[i-1] = playerlist[i];
-			level.player_num--;
-		}
-		return;
-	}	
-	
-	
 	ValidateSelectedItem (ent);
 
 	if (ent->client->pers.selected_item == -1)
@@ -2724,20 +909,7 @@ void Cmd_WeapPrev_f (edict_t *ent)
 	int			selected_weapon;
 
 	cl = ent->client;
-/*
-	// JOSEPH 10-FEB-99
-	if (cl->pers.holsteredweapon)
-	{
-		if (level.bar_lvl)
-			return;
 
-		cl->newweapon = cl->pers.holsteredweapon;
-		ChangeWeapon (ent);
-		cl->pers.holsteredweapon = 0;
-		return;
-	}
-	// END JOSEPH
-*/
 	if (cl->pers.spectator == SPECTATING)
 		return;
 
@@ -2767,7 +939,7 @@ void Cmd_WeapPrev_f (edict_t *ent)
 		if (selected_weapon == ITEM_INDEX(it) && cl->newweapon)
 		{
 			// Ridah, show the current weapon on the hud, for easy scrolling
-			if (deathmatch->value && !strstr(cl->newweapon->icon, "pipe"))
+			if (deathmatch_value && !strstr(cl->newweapon->icon, "pipe"))
 			{
 				it = cl->newweapon;
 				ent->client->ps.stats[STAT_PICKUP_ICON] = gi.imageindex(it->icon);
@@ -2810,23 +982,26 @@ void Cmd_Activate_f (edict_t *ent)
 	edict_t		*trav, *best;
 	float		best_dist=9999, this_dist;
 
-	if (ent->movetype == MOVETYPE_NOCLIP) {
-		if (ent->client->pers.spectator == SPECTATING)
+	if (ent->client->showscores == SCORE_REJOIN) return;
+
+	if (ent->movetype == MOVETYPE_NOCLIP)
+	{
+		if (ent->client->pers.spectator == SPECTATING && (level.modeset == PUBLIC || level.modeset == MATCH))
 		{
+			if (level.modeset == MATCH && no_spec->value && !ent->client->pers.admin && !ent->client->pers.rconx[0]) return;
 			if (maxclients->value > 1)
 			{
 				if (!ent->client->chase_target)
 				{
 					ent->client->chasemode = EYECAM_CHASE;  // snap
-					ent->client->chase_check = level.framenum;
-					ChaseNext(ent);
+					ent->client->chase_frame = level.framenum;
+					ChaseStart(ent);
+					if (ent->client->chase_target)
+						ent->client->showscores = NO_SCOREBOARD;
 				}
 				else	// disable it
 				{
-					if(ent->client->update_cam>0)
-						ent->client->ps = ent->client->temp_ps;
-					ent->client->chase_target = NULL;
-					ent->client->ps.pmove.pm_flags &= ~PMF_NO_PREDICTION;
+					ChaseStop(ent);
 				}
 			}
 		}
@@ -2887,43 +1062,6 @@ void Cmd_Activate_f (edict_t *ent)
 		}
 	}
 
-	// JOSEPH 1-OCT-98
-	// Work in progress
-	/*{
-	edict_t		*trav, *best;
-	float		best_dist=9999, this_dist;
-	
-		// find the nearest pull-enabled object 
-		trav = best = NULL;
-		while (trav = findradius( trav, ent->s.origin, 128 ))
-		{
-			if (!trav->pullable)
-				continue;
-			//if (!infront(ent, trav))
-			//	continue;
-			//if (!visible(ent, trav))
-			//	continue;
-			if (((this_dist = VectorDistance(ent->s.origin, trav->s.origin)) > best_dist) && (this_dist > 64))
-				continue;
-			
-			best = trav;
-			best_dist = this_dist;
-		}
-
-		// If we find something to drag
-		if (best)
-		{
-			vec3_t	up, forward;
-						
-			AngleVectors(ent->s.angles, forward, NULL, up);
-			//VectorScale (forward, 50, best->velocity);
-			VectorMA (best->velocity, 400, up, best->velocity);
-			best->movetype = MOVETYPE_TOSS;
-			best->groundentity = NULL;
-		}
-	}*/
-	// END JOSEPH
-
 	// JOSEPH 11-MAY-99
 	// find a usable brush entity and tag it as such
 	{
@@ -2939,7 +1077,7 @@ void Cmd_Activate_f (edict_t *ent)
 		topdistance = 10000;
 		directtarget = 0;
 
-		while (((target = findradius(target, ent->s.origin, DREWACTIVATEDISTANCE * (1 + (deathmatch->value != 0)))) || toptarget) && !directtarget)
+		while (((target = findradius(target, ent->s.origin, DREWACTIVATEDISTANCE * (1 + (deathmatch_value != 0)))) || toptarget) && !directtarget)
 		{
 			if (!target)
 				goto startyourtriggers;
@@ -2952,7 +1090,7 @@ void Cmd_Activate_f (edict_t *ent)
 			neworigin[2] += ent->viewheight;
 			
 			AngleVectors( ent->client->ps.viewangles, dir, NULL, NULL );
-			VectorMA (neworigin, DREWACTIVATEDISTANCE * (1 + (deathmatch->value != 0)), dir, dest);
+			VectorMA (neworigin, DREWACTIVATEDISTANCE * (1 + (deathmatch_value != 0)), dir, dest);
 
 			trace = gi.trace (neworigin, vec3_origin, vec3_origin, dest, ent, MASK_SOLID);
 			
@@ -3010,7 +1148,7 @@ void Cmd_Activate_f (edict_t *ent)
 			tr = gi.trace(neworigin, NULL, NULL, endorg, ent, MASK_SOLID);
 
 			// Ridah, added this since it's frustrating hitting the switches in deathmatch
-			if (!deathmatch->value || (!Q_stricmp(target->classname, "func_button") && !Q_stricmp(target->target, "safe2")))
+			if (!deathmatch_value || (!Q_stricmp(target->classname, "func_button") && !Q_stricmp(target->target, "safe2")))
 			if (tr.ent != target)
 				continue;
 
@@ -3025,57 +1163,6 @@ startyourtriggers:
 	
 	// END JOSEPH
 
-	/*{
-		edict_t		*target;
-		vec3_t		dest, src;
-		trace_t		trace;
-		vec3_t		dir;	
-
-
-		target = NULL;
-		
-		while (target = findradius ( target, ent->s.origin, DREWACTIVATEDISTANCE))
-		{
-			if (!(target->activate_flags & ACTIVATE_GENERAL))
-				continue;
-			if (target->targetname && target->key != -1)
-				continue;
-
-			if (strcmp (target->classname, "func_door") == 0)
-			{
-				AngleVectors( ent->client->ps.viewangles, dir, NULL, NULL );
-				VectorMA (ent->s.origin, DREWACTIVATEDISTANCE, dir, dest);
-			}
-			else if (strcmp (target->classname, "misc_cut_scene") == 0)
-			{
-				AngleVectors( ent->client->ps.viewangles, dir, NULL, NULL );
-				VectorMA (ent->s.origin, DREWACTIVATEDISTANCE, dir, dest);
-			}
-			else
-			{
-				VectorAdd (target->absmin, target->absmax, dest);
-				VectorScale (dest, 0.5, dest);
-			}
-
-
-			// Ridah, fix close to buttons not working
-			VectorCopy( ent->s.origin, src );
-			if (	(dest[2] > (ent->s.origin[2] + ent->mins[2]))
-				&&	(dest[2] < (ent->s.origin[2] + ent->maxs[2])))
-			{
-				src[2] = dest[2];
-			}
-
-			trace = gi.trace (ent->s.origin, vec3_origin, vec3_origin, dest, ent, MASK_SOLID);
-
-			// Rafael
-			if (trace.ent != target)
-			{
-				// Ridah, fix close to buttons not working
-				if (VectorDistance( trace.endpos, dest ) > 32)
-					continue;
-			}*/
-	
 			// JOSEPH 12-MAR-99-B
 			// If it must be trigger unlocked
 			if (target->key < 0)
@@ -3193,14 +1280,14 @@ startyourtriggers:
 					}
 					break;					
 
-					case 11:
+/*					case 11:
 					{
 						if (!(EP_UnlockDoorFlag (ent)))
 						{
 							gi.sound (ent, CHAN_AUTO, gi.soundindex("world/doors/dr_locked.wav"), 1, ATTN_NORM, 0);					
 							continue;
 						}
-					}
+					}*/
 				}
 
 				// Ridah, once unlocked, stay unlocked
@@ -3221,56 +1308,6 @@ startyourtriggers:
 					target->use (target, ent, ent);
 				}
 	}
-
-	// Ridah, moveout command
- 	if ((ent->cast_info.aiflags & AI_DOKEY || ent->cast_info.aiflags & AI_MOVEOUT) && ent->client->pers.friends > 0)
-	{
-		vec3_t	start, end, dir;
-		trace_t tr;
-
-		AngleVectors( ent->client->ps.viewangles, dir, NULL, NULL );
-
-		VectorCopy( ent->s.origin, start );
-		start[2] += ent->viewheight;
-
-		VectorMA( start, 2048, dir, end );
-
-		tr = gi.trace( start, NULL, NULL, end, ent, MASK_SHOT );
-
-		if (	(tr.fraction < 1)
-			&&	(tr.ent->svflags & SVF_MONSTER)
-			&&	(tr.ent->health > 0)
-			&&	(tr.ent->cast_group != ent->cast_group))
-		{
-			int i;
-
-			ent->moveout_ent = tr.ent;
-
-			// look for a friend to say this to
-			for (i=0; i<level.num_characters; i++)
-			{
-				if (!level.characters[i])
-					continue;
-				if (level.characters[i]->health <= 0)
-					continue;
-				if (level.characters[i]->leader != ent)
-					continue;
-
-				if (!(level.characters[i]->cast_info.aiflags & AI_MOVEOUT))
-					continue;
-				
-				Voice_Random( ent, level.characters[i], hiredguy_combat_moveout, NUM_HIREDGUY_COMBAT_MOVEOUT );
-				break;
-			}
-		}
-
-		else if (ent->cast_info.aiflags & AI_DOKEY)
-		{
-			EP_Check_DoKey (ent, tr.ent);
-			// gi.dprintf ("gave a go do key order\n");
-		}
-	}
-
 }
 // END JOSEPH
 
@@ -3291,86 +1328,21 @@ void Cmd_Reload_f (edict_t *ent)
 	if (ent->client->weaponstate != WEAPON_READY)
 		return;
 
+	if (!ent->client->pers.inventory[ent->client->ammo_index])
+		return;
+
+	if (dm_realmode->value == 2)
+		return;
+
 	ent->client->reload_weapon = true;
 }
 // END 01-11-99
 
 
-// JOSEPH 6-FEB-99
 void Cmd_Holster_f (edict_t *ent)
 {
-	gclient_t *cl;
-
-	if (deathmatch->value)
-		return;
-
-	if (level.bar_lvl)
-	{
-		gi.dprintf ("no weapons on this level\n");
-		return;
-	}
-
-	cl = ent->client;
-
-	if (!cl->pers.holsteredweapon)
-	{
-		if (!cl->pers.weapon)
-			return;
-
-		cl->pers.holsteredweapon = cl->pers.weapon;
-		cl->newweapon = NULL;
-		cl->weaponstate = WEAPON_DROPPING;
-
-		if (ent->s.renderfx2 & RF2_FLAMETHROWER)
-			ent->s.renderfx2 &= ~RF2_FLAMETHROWER;
-	}
-	else
-	{
-		if (cl->ps.gunindex != 0)
-			return;
-  
-		cl->newweapon = cl->pers.holsteredweapon;
-		ChangeWeapon (ent);
-		cl->pers.holsteredweapon = 0;  
-	}
+	cprintf (ent, PRINT_HIGH, "no holstering\n");
 }
-
-void Cmd_HolsterBar_f (edict_t *ent)
-{
-	gclient_t *cl;
-
-	cl = ent->client;
-
-	if (deathmatch->value)
-		return;
-
-	if (level.bar_lvl)
-	{
-		if (!cl->pers.holsteredweapon)
-		{
-			if (!cl->pers.weapon)
-				return;
-
-			cl->pers.holsteredweapon = cl->pers.weapon;
-			//cl->newweapon = NULL;
-			//cl->weaponstate = WEAPON_DROPPING;
-			cl->ps.gunindex = 0;
-		}
-	}
-	
-	else
-	{
-		if (cl->ps.gunindex != 0)
-			return;
-  
-		cl->newweapon = cl->pers.holsteredweapon;
-		ChangeWeapon (ent);
-		cl->pers.holsteredweapon = 0;  
-	}
-	
-	
-}
-// END JOSEPH
 
 // JOSEPH 29-DEC-98
 void Cmd_Hud_f (edict_t *ent)
@@ -3379,14 +1351,6 @@ void Cmd_Hud_f (edict_t *ent)
 	gi.unicast (ent, true);
 }
 // END JOSEPH
-
-
-/*void Cmd_ForceCutScene_f (void)
-{
-	level.cut_scene_time = 1;
-}*/
-
-
 
 void Cmd_Flashlight_f (edict_t *ent)
 {
@@ -3410,20 +1374,7 @@ void Cmd_WeapNext_f (edict_t *ent)
 	int			selected_weapon;
 
 	cl = ent->client;
-/*
-	// JOSEPH 10-FEB-99
-	if (cl->pers.holsteredweapon)
-	{
-		if (level.bar_lvl)
-			return;
-		
-		cl->newweapon = cl->pers.holsteredweapon;
-		ChangeWeapon (ent);
-		cl->pers.holsteredweapon = 0;
-		return;
-	}
-	// END JOSEPH
-*/
+
 	if (cl->pers.spectator == SPECTATING)
 		return;
 
@@ -3458,7 +1409,7 @@ void Cmd_WeapNext_f (edict_t *ent)
 		if (selected_weapon == ITEM_INDEX(it) && cl->newweapon)
 		{
 			// Ridah, show the current weapon on the hud, for easy scrolling
-			if (deathmatch->value && !strstr(cl->newweapon->icon, "pipe"))
+			if (deathmatch_value && !strstr(cl->newweapon->icon, "pipe"))
 			{
 				it = cl->newweapon;
 				ent->client->ps.stats[STAT_PICKUP_ICON] = gi.imageindex(it->icon);
@@ -3490,7 +1441,7 @@ void Cmd_WeapLast_f (edict_t *ent)
 
 	if (cl->pers.spectator == SPECTATING)
 		return;
-	
+
 	if (ent->movetype == MOVETYPE_NOCLIP)
 		return;
 
@@ -3505,11 +1456,11 @@ void Cmd_WeapLast_f (edict_t *ent)
 		return;
 	if (! (it->flags & IT_WEAPON) )
 		return;
-	
+
 	it->use (ent, it);
-	
+
 	// Ridah, show the current weapon on the hud, for easy scrolling
-	if (deathmatch && !strstr(it->icon, "pipe"))
+	if (deathmatch_value && !strstr(it->icon, "pipe"))
 	{
 		ent->client->ps.stats[STAT_PICKUP_ICON] = gi.imageindex(it->icon);
 		ent->client->ps.stats[STAT_PICKUP_STRING] = CS_ITEMS+ITEM_INDEX(it);
@@ -3563,19 +1514,8 @@ Cmd_Kill_f
 */
 void Cmd_Kill_f (edict_t *ent)
 {
-cprintf (ent, PRINT_HIGH, "no suiciding!\n");
-return;
-/*
-	// don't let spectators kill themselves
-	if (ent->solid == SOLID_NOT)
-		return;
-
-	if((level.time - ent->client->respawn_time) < 5)
-		return;
-	ent->flags &= ~FL_GODMODE;
-	ent->health = 0;
-	meansOfDeath = MOD_SUICIDE;
-	player_die (ent, ent, ent, 1, vec3_origin, 0, 0);*/
+	if (ent->solid != SOLID_NOT)
+		cprintf (ent, PRINT_HIGH, "no suiciding!\n");
 }
 
 /*
@@ -3586,25 +1526,7 @@ Cmd_PutAway_f
 void Cmd_PutAway_f (edict_t *ent)
 {
 	ent->client->showscores = NO_SCOREBOARD;
-	ent->client->showhelp = false;
 	ent->client->showinventory = false;
-}
-
-int PlayerSort (void const *a, void const *b)
-{
-	int		anum, bnum;
-
-	anum = *(int *)a;
-	bnum = *(int *)b;
-
-	anum = game.clients[anum].ps.stats[STAT_FRAGS];
-	bnum = game.clients[bnum].ps.stats[STAT_FRAGS];
-
-	if (anum < bnum)
-		return -1;
-	if (anum > bnum)
-		return 1;
-	return 0;
 }
 
 /*
@@ -3614,48 +1536,27 @@ Cmd_Players_f
 */
 void Cmd_Players_f (edict_t *ent)
 {
-	int		i;
+	int		a;
 	int		count;
-	char	small[100];
-//	char	large[1280];
-	char	large[2000];
-	int		index[256];
 
 	count = 0;
-	for (i = 0 ; i < maxclients->value ; i++)
-		if (game.clients[i].pers.connected)
+
+	cprintf(ent, PRINT_HIGH, "num score ping name            lastmsg country\n"
+		"--- ----- ---- --------------- ------- ---------------------\n");
+	for (a=1; a<=maxclients->value; a++)
+	{
+		gclient_t *c = g_edicts[a].client;
+		if (c && (g_edicts[a].inuse || (c->pers.connected && (kpded2 || curtime-c->pers.lastpacket < 120000))))
 		{
-			index[count] = i;
+			char buf[16];
+			sprintf(buf, g_edicts[a].inuse ? "%d" : "CNCT", c->ping);
+			cprintf(ent, PRINT_HIGH, "%3d %5d %4s %-15s %7d %s\n",
+				a-1, c->resp.score, buf, c->pers.netname, curtime-c->pers.lastpacket, c->pers.country ? c->pers.country : "");
 			count++;
 		}
-
-	// sort by frags
-// Ridah, disabled, so we can use this to list players we might want to "vote ban"
-//	qsort (index, count, sizeof(index[0]), PlayerSort);
-
-	// print information
-	large[0] = 0;
-
-	for (i = 0 ; i < count ; i++)
-	{
-		Com_sprintf (small, sizeof(small), "%2i - %s (%i frags)",
-			index[i] + 1,
-			game.clients[index[i]].pers.netname,
-			game.clients[index[i]].ps.stats[STAT_FRAGS]);
-		if (game.clients[index[i]].pers.country) {
-			strcat(small, " - ");
-			strcat(small, game.clients[index[i]].pers.country);
-		}
-		strcat(small,"\n");
-		if (strlen (small) + strlen(large) > sizeof(large) - 100 )
-		{	// can't print all of them in one packet
-			strcat (large, "...\n");
-			break;
-		}
-		strcat (large, small);
 	}
 
-	cprintf (ent, PRINT_HIGH, "%s\n%i players\n", large, count);
+	cprintf (ent, PRINT_HIGH, "\n%i players\n", count);
 }
 
 /*
@@ -3666,19 +1567,18 @@ Cmd_Wave_f
 void Cmd_Wave_f (edict_t *ent, edict_t *other, int who)
 {
 	char *cmd;
-//	int	rnd;
 
 	cmd = gi.argv(0);
 
-    
-    if(other!=NULL)
-    {
-        if (!other->client)
-            return;
-        
-        if (!ent->solid)
-            return;
-    }
+
+	if (other!=NULL)
+	{
+		if (!other->client)
+			return;
+
+		if (!ent->solid)
+			return;
+	}
 
 	// can't wave when ducked
 	if (ent->client->ps.pmove.pm_flags & PMF_DUCKED)
@@ -3764,7 +1664,6 @@ void Cmd_Wave_f (edict_t *ent, edict_t *other, int who)
 	}
 }
 
-
 /*
 ==================
 Cmd_Say_f
@@ -3777,55 +1676,31 @@ void Cmd_Say_f (edict_t *ent, qboolean team, qboolean arg0)
 	char	*p;
 	char	text[2048];
 	gclient_t *cl;
-//	char	*ip;
 
-	if (gi.argc () < 2 && !arg0)
-		return;
-	if ((Q_stricmp (gi.argv(0), "say") == 0)||(Q_stricmp (gi.argv(0), "say_team") == 0))
-	{
-		if (!gi.argv(1) || !*gi.argv(1)) //dont print empty chat
-			return;
-	}
+	ent->client->resp.check_idle = level.framenum;
 
 	if (ent->client->pers.mute) return;
+	if (gi.argc () < 2 && !arg0)
+		return;
+	if (!arg0 && !*gi.argv(1)) //dont print empty chat
+		return;
 
-#if 0
-	// don't let us talk if we were just kicked
-	ip = Info_ValueForKey( ent->client->pers.userinfo, "ip" );
-	if (ip && ip[0])
-	{
-//		if (!strcmp(ip, last_kick_ip))
-//		{
-//			cprintf( ent, PRINT_HIGH, "You cannot talk.\n" );
-//			return;
-//		}
-	}
-#endif
-
-  /*  if(team && (ent->client->pers.spectator == SPECTATING) && deathmatch->value)
-    {
-        team = true;  //give team talk for FFA specs
-        goto skipnext;
-    }*/
-    
-    if ((deathmatch->value && !(ent->client->pers.spectator == SPECTATING)) 
-        && !teamplay->value && !((int)(dmflags->value) & (DF_MODELTEAMS /*| DF_SKINTEAMS*/)))
+	if (!teamplay->value && !((int)(dmflags->value) & (DF_MODELTEAMS /*| DF_SKINTEAMS*/))
+		&& ent->client->pers.spectator != SPECTATING)
 		team = false;
-
-//skipnext:;
 
 	if (team && ((ent->client->pers.admin > NOT_ADMIN) || (ent->client->pers.rconx[0])))
 		Com_sprintf (text, sizeof(text), ">(%s)<: ", ent->client->pers.netname);
-    else if((ent->client->pers.admin > NOT_ADMIN) || (ent->client->pers.rconx[0]))
-        Com_sprintf (text, sizeof(text), ">|%s|<: ", ent->client->pers.netname);
-    else if(team)
-        Com_sprintf (text, sizeof(text), ">%s<: ", ent->client->pers.netname);
-    else
+	else if ((ent->client->pers.admin > NOT_ADMIN) || (ent->client->pers.rconx[0]))
+		Com_sprintf (text, sizeof(text), ">|%s|<: ", ent->client->pers.netname);
+	else if (team)
+		Com_sprintf (text, sizeof(text), ">%s<: ", ent->client->pers.netname);
+	else
 		Com_sprintf (text, sizeof(text), ":%s: ", ent->client->pers.netname);
 
 	if (arg0)
 	{
-        strcat (text, gi.argv(0));
+		strcat (text, gi.argv(0));
 		strcat (text, " ");
 		strcat (text, gi.args());
 	}
@@ -3841,10 +1716,12 @@ void Cmd_Say_f (edict_t *ent, qboolean team, qboolean arg0)
 		strcat(text, p);
 	}
 
-	if (disable_anon_text && strchr(text,13)) {
-		if (!ent->anonwarn) {
-			gi.cprintf(ent, PRINT_CHAT, "anonymous text is not allowed on this server!\n");
-			ent->anonwarn++;
+	if (disable_anon_text && strchr(text, '\r'))
+	{
+		if (!ent->client->pers.anonwarn)
+		{
+			gi.cprintf(ent, PRINT_CHAT, "anonymous text is not allowed on this server\n");
+			ent->client->pers.anonwarn++;
 		}
 		return;
 	}
@@ -3855,34 +1732,36 @@ void Cmd_Say_f (edict_t *ent, qboolean team, qboolean arg0)
 
 	strcat(text, "\n");
 
-	if (!(team && level.modeset==MATCHSETUP))
-	if (flood_msgs->value) {
+	if (!(team && level.modeset == MATCHSETUP) && flood_msgs->value)
+	{
 		cl = ent->client;
 
-      if (level.time < cl->flood_locktill) {
+		if (level.time < cl->flood_locktill)
+		{
 			cprintf(ent, PRINT_HIGH, "You can't talk for %d more seconds\n",
 				(int)(cl->flood_locktill - level.time));
-            return;
-      }
-      i = cl->flood_whenhead - flood_msgs->value + 1;
-      if (i < 0)
-          i = (sizeof(cl->flood_when)/sizeof(cl->flood_when[0])) + i;
+			return;
+		}
+		i = cl->flood_whenhead - flood_msgs->value + 1;
+		if (i < 0)
+			i = (sizeof(cl->flood_when)/sizeof(cl->flood_when[0])) + i;
 		if (cl->flood_when[i] && 
-			level.time - cl->flood_when[i] < flood_persecond->value) {
+			level.time - cl->flood_when[i] < flood_persecond->value)
+		{
 			cl->flood_locktill = level.time + flood_waitdelay->value;
-			gi.cprintf(ent, PRINT_CHAT, "Flood protection:  You can't talk for %d seconds.\n",
+			gi.cprintf(ent, PRINT_CHAT, "Flood protection: You can't talk for %d seconds\n",
 				(int)flood_waitdelay->value);
-         return;
-      }
+			return;
+		}
 
-      // if they repeat themselves really quickly, bitch-slap time
+		// if they repeat themselves really quickly, bitch-slap time
 		if (cl->flood_when[cl->flood_whenhead] && (cl->flood_when[cl->flood_whenhead] > level.time - 1) &&
 			!strcmp( ent->client->flood_lastmsg, text ))
 		{
 			cl->flood_locktill = level.time + flood_waitdelay->value;
-			gi.cprintf(ent, PRINT_CHAT, "Flood protection:  You can't talk for %d seconds.\n",
+			gi.cprintf(ent, PRINT_CHAT, "Flood protection: You can't talk for %d seconds\n",
 				(int)flood_waitdelay->value);
-         return;
+			return;
 		}
 
 		cl->flood_whenhead = (cl->flood_whenhead + 1) %
@@ -3895,41 +1774,27 @@ void Cmd_Say_f (edict_t *ent, qboolean team, qboolean arg0)
 	if (dedicated->value)
 		gi.cprintf(NULL, PRINT_CHAT, "%s", text);
 
-	for (j = 1; j <= game.maxclients; j++) {
+	for (j = 1; j <= game.maxclients; j++)
+	{
 		other = &g_edicts[j];
 		if (!(other->inuse))
 			continue;
 		if (!(other->client))
 			continue;
-		if (team) {
-            if(deathmatch->value && !teamplay->value 
-                && (ent->client->pers.spectator==SPECTATING 
-                    && other->client->pers.spectator==SPECTATING))
-                goto skipnext; //damn hack..only way
-     		if (!teamplay->value || ent->client->pers.team!=other->client->pers.team)
-				if (!OnSameTeam(ent, other))
-					continue;
-//			if ((ent->client->pers.team == 0) != (other->client->pers.team == 0))
-//				continue;
+		if (team && (ent->client->pers.spectator != SPECTATING || other->client->pers.spectator != SPECTATING))
+		{
+			if (!OnSameTeam(ent, other))
+				continue;
 		}
-skipnext:
 		gi.cprintf(other, PRINT_CHAT, "%s", text);
 	}
-
-    ent->check_idle = level.framenum;
 }
-
-
-//===================================================================================
-// Papa 10.6.99 - added the ability to drop your current cash - still buggy
-//===================================================================================
-
 
 void Cmd_DropCash_f (edict_t *self)
 {
 	edict_t		*cash;
 
-	if (self->client->pers.spectator!=PLAYING) return;
+	if (self->solid == SOLID_NOT) return;
 
 	if ((int)(dmflags->value) & DF_DROP_CASH)
 	{
@@ -3938,37 +1803,7 @@ void Cmd_DropCash_f (edict_t *self)
 			cash = SpawnTheWeapon( self, "item_cashroll" );
 			cash->currentcash = self->client->pers.currentcash;
 			self->client->pers.currentcash = 0;
-
-/*			cash->velocity[0] = crandom() * 100;
-			cash->velocity[1] = crandom() * 100;
-			cash->velocity[2] = 0;
-
-			VectorNormalize( cash->velocity );
-			VectorScale( cash->velocity, 100, cash->velocity );
-			cash->velocity[2] = 300;*/
 		}
-#if 0
-		if (self->client->pers.bagcash)
-		{
-			if (self->client->pers.bagcash > 100)
-				cash = SpawnTheWeapon( self, "item_cashbaglarge" );
-			else
-				cash = SpawnTheWeapon( self, "item_cashbagsmall" );
-
-//			cash->nextthink = level.time + 120;
-
-			cash->currentcash = -self->client->pers.bagcash;
-			self->client->pers.bagcash = 0;
-
-/*			cash->velocity[0] = crandom() * 100;
-			cash->velocity[1] = crandom() * 100;
-			cash->velocity[2] = 0;
-
-			VectorNormalize( cash->velocity );
-			VectorScale( cash->velocity, 100, cash->velocity );
-			cash->velocity[2] = 300;*/
-		}
-#endif
 	}
 }
 
@@ -3978,174 +1813,195 @@ void Cmd_DropCash_f (edict_t *self)
 
 //===================================================================================
 // This is the start for all the commands that players can enter to run the mod.
-
 //===================================================================================
 
 void Cmd_PrintSettings_f (edict_t *ent)
 {
-	cprintf(ent, PRINT_HIGH,"\nCurrent Game Settings.\n");
-	cprintf(ent, PRINT_HIGH,"======================\n\n");
+	cprintf(ent, PRINT_HIGH,"\nCurrent Game Settings\n"
+		"=====================\n");
 	switch (level.modeset)
 	{
-		case FREEFORALL :
-		case TEAMPLAY :
-			cprintf(ent, PRINT_HIGH,"Server State    : Public\n");
+		case PREGAME :
+		case PUBLIC :
+			cprintf(ent, PRINT_HIGH, "Server State    : Public\n");
 			break;
 		case MATCHSETUP :
-			cprintf(ent, PRINT_HIGH,"Server State    : Match Setup\n");
+			cprintf(ent, PRINT_HIGH, "Server State    : Match Setup\n");
 			break;
-		case FINALCOUNT :
-			cprintf(ent, PRINT_HIGH,"Server State    : Final Countdown\n");
+		case MATCHCOUNT :
+			cprintf(ent, PRINT_HIGH, "Server State    : Match Countdown\n");
 			break;
 		case MATCH :
-			cprintf(ent, PRINT_HIGH,"Server State    : Match\n");
+			cprintf(ent, PRINT_HIGH, "Server State    : Match\n");
 			break;
 	}
-	if (level.modeset==MATCHSETUP)
-		cprintf(ent, PRINT_HIGH,"Matchstart score: %d : %d\n",team_startcash[0],team_startcash[1]);
+	if (level.modeset == MATCHSETUP)
+		cprintf(ent, PRINT_HIGH,"Matchstart score: %d : %d\n", team_startcash[0], team_startcash[1]);
 	cprintf(ent, PRINT_HIGH,"Time limit      : %d\n", (int)timelimit->value);
 	cprintf(ent, PRINT_HIGH,"Frag limit      : %d\n", (int)fraglimit->value);
 	cprintf(ent, PRINT_HIGH,"Cash limit      : %d\n", (int)cashlimit->value);
 	cprintf(ent, PRINT_HIGH,"dmflags         : %d\n", (int)dmflags->value);
 	cprintf(ent, PRINT_HIGH,"dm_realmode     : %d\n", (int)dm_realmode->value);
-	cprintf(ent, PRINT_HIGH,"Server password : %s\n", password->string);
-	cprintf(ent, PRINT_HIGH,"Teamplay mode   : %d\n",(int)teamplay->value);
-	if (admincode[0] || !disable_admin_voting) {
-		int			i,found;
-		edict_t		*player;
-
-		i=0;
-		found = false;
-		while ((!found) && (i<maxclients->value)) {
-			player = g_edicts + 1 + i;
-			i++;
-			if (!player->inuse)
-				continue;
-			if (player->client->pers.admin > NOT_ADMIN)
-				found = true;
-		}
-
-		if (found )
-			cprintf(ent, PRINT_HIGH,"Current admin   : %s\n\n",player->client->pers.netname);
-		else 
-			cprintf(ent, PRINT_HIGH,"Current admin   : none\n\n");
+	cprintf(ent, PRINT_HIGH,"Teamplay mode   : %d\n", (int)teamplay->value);
+	if (!teamplay->value)
+		cprintf(ent, PRINT_HIGH,"Bonus hit       : %d\n", (int)bonus->value);
+	cprintf(ent, PRINT_HIGH,"Bunny-hopping   : %s\n", (int)dmflags->value&DF_NO_BUNNY ? "off" : "on");
+	cprintf(ent, PRINT_HIGH,"Anti-spawncamp  : %s\n", anti_spawncamp->value? "on" : "off");
+	cprintf(ent, PRINT_HIGH,"Shadows         : %s\n", no_shadows->value? "off" : "on");
+	cprintf(ent, PRINT_HIGH,"FOV zooming     : %s\n", no_zoom->value? "off" : "on");
+	if (level.modeset >= MATCHSETUP && level.modeset <= MATCH)
+		cprintf(ent, PRINT_HIGH,"Spectating      : %s\n", no_spec->value? "off" : "on");
+	if (password->string[0])
+		cprintf(ent, PRINT_HIGH,"Server password : %s\n", password->string);
+	{
+		edict_t *admin = GetAdmin();
+		if (admin)
+			cprintf(ent, PRINT_HIGH, "Current admin   : %s\n", admin->client->pers.netname);
 	}
 }
+
 void Cmd_CurseList_f (edict_t *ent)
 {
-	if(disable_curse)
+	if (disable_curse)
 	{
-		cprintf(ent, PRINT_HIGH,"Player taunts are disabled!\n");
+		cprintf(ent, PRINT_HIGH,"Player taunts are disabled\n");
 		return;
 	}
-	cprintf(ent, PRINT_HIGH,"\nList of Curse Commands\n");
-	cprintf(ent, PRINT_HIGH,"=============================\n");
-	cprintf(ent, PRINT_HIGH,"MALE       FEMALE      RANDOM\n");
-	cprintf(ent, PRINT_HIGH,"=============================\n");
-	cprintf(ent, PRINT_HIGH,"KINGPIN    BAMBI       CURSE\n");
-	cprintf(ent, PRINT_HIGH,"LEROY      YOLANDA     TAUNT\n");
-	cprintf(ent, PRINT_HIGH,"MJ         MONA\n");
-	cprintf(ent, PRINT_HIGH,"MOMO       LOLA\n");
-	cprintf(ent, PRINT_HIGH,"LAMONT     BLUNT\n");
-	cprintf(ent, PRINT_HIGH,"JESUS      BETH\n");
-	cprintf(ent, PRINT_HIGH,"TYRONE\n");
-	cprintf(ent, PRINT_HIGH,"WILLY\n");
-	cprintf(ent, PRINT_HIGH,"MOKER\n");
-	cprintf(ent, PRINT_HIGH,"HEILMAN\n");
+	cprintf(ent, PRINT_HIGH,"\nList of Curse Commands\n"
+		"=============================\n"
+		"MALE       FEMALE      RANDOM\n"
+		"=============================\n"
+		"KINGPIN    BAMBI       CURSE\n"
+		"LEROY      YOLANDA     TAUNT\n"
+		"MJ         MONA\n"
+		"MOMO       LOLA\n"
+		"LAMONT     BLUNT\n"
+		"JESUS      BETH\n"
+		"TYRONE\n"
+		"WILLY\n"
+		"MOKER\n"
+		"HEILMAN\n");
 }
-
 
 void Cmd_CommandList_f (edict_t *ent)
 {
-	if (!admincode[0] && disable_admin_voting) {
-		cprintf(ent, PRINT_HIGH,"There are no admin commands enabled on this server.\n");
-		return;
-	}
-	cprintf(ent, PRINT_HIGH,"\nCurrent Console Commands.\n");
-	cprintf(ent, PRINT_HIGH,"=========================\n");
-	if (admincode[0]) cprintf(ent, PRINT_HIGH,"admin, ");
-	if (!disable_admin_voting) cprintf(ent, PRINT_HIGH,"elect, ");
-	cprintf(ent, PRINT_HIGH,"resign, commands, settings, toggle_shadows\n");
-	if (teamplay->value) {
-		cprintf(ent, PRINT_HIGH,"matchsetup, matchscore, matchstart, matchend, clientlist\n");
-		cprintf(ent, PRINT_HIGH,"publicsetup, resetserver, changemap, maplist, mute\n");
-	} else
-		cprintf(ent, PRINT_HIGH,"resetserver, changemap, maplist, clientlist, mute\n");
-	cprintf(ent, PRINT_HIGH,"settimelimit, setfraglimit, setcashlimit, setidletime\n");
-	cprintf(ent, PRINT_HIGH,"team1name, team2name, toggle_asc, curselist, toggle_spec\n");
-	if (enable_password) cprintf(ent, PRINT_HIGH,"setpassword removepassword\n");
-	if (!fixed_gametype) {
-		cprintf(ent, PRINT_HIGH,"setdmflags, setdm_realmode, setteamplay\n");
-		cprintf(ent, PRINT_HIGH,"   The teamplay settings are:\n");
-		cprintf(ent, PRINT_HIGH,"       0 : Free for all DM\n");
-		cprintf(ent, PRINT_HIGH,"       1 : Bagman\n");
-		cprintf(ent, PRINT_HIGH,"       4 : Team DM\n");
-	}
+	char buf[1000];
+
+	cprintf(ent, PRINT_HIGH, "\nCurrent Console Commands\n"
+		"========================\n");
+	strcpy(buf, "commands, motd, settings, players, curselist, maplist, changemap");
+	if (antilag->value)
+		strcat(buf, ", antilag");
+	if (admincode[0] || ent->client->pers.rconx[0])
+		strcat(buf, ", admin");
+	if (ent->client->pers.admin > NOT_ADMIN)
+		strcat(buf, ", resign");
+	else if (!disable_admin_voting)
+		strcat(buf, ", elect");
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		if (teamplay->value)
+			strcat(buf, ", matchsetup, matchscore, matchstart, matchend, team1name, team2name");
+		strcat(buf, ", resetserver, settimelimit, setfraglimit, setcashlimit, setdmflags, setidletime, toggle_asc, toggle_bunny, toggle_shadows, toggle_zoom");
+		if (teamplay->value)
+			strcat(buf, ", toggle_spec");
+		else
+			strcat(buf, ", setbonus");
+		if (ent->client->pers.admin > ELECTED)
+			strcat(buf, ", clientlist, mute");
+		if (enable_password)
+			strcat(buf, ", setpassword");
+		if (!fixed_gametype)
+			strcat(buf, ", setdm_realmode, setteamplay");
+	} else if (ent->client->pers.rconx[0])
+		strcat(buf, ", resetserver, clientlist, mute");
+	cprintf(ent, PRINT_HIGH, "%s\n", buf);
+	if (ent->client->pers.admin > NOT_ADMIN && !fixed_gametype)
+		cprintf(ent, PRINT_HIGH,
+			"   The dm_realmode settings are:\n"
+			"      0 : Standard\n"
+			"      1 : Realmode\n"
+			"      2 : Rocketmode\n"
+			"   The teamplay settings are:\n"
+			"      0 : Standard DM\n"
+			"      1 : Bagman\n"
+			"      4 : Team DM\n");
 }
-
-//===================================================================================
-//===================================================================================
-
 
 void Cmd_Yes_f (edict_t *ent)
 {
 	edict_t		*dude;
-	int			i,nop,novy;
+	int			i, nop, novy;
+	char		command [256];
 
-	if ((level.voteset != NO_VOTES) && (ent->vote == HASNT_VOTED))
+	if (level.voteset == NO_VOTES)
+		cprintf(ent, PRINT_HIGH, "There is nothing to vote on at this time\n");
+	else if (ent->client->resp.vote != HASNT_VOTED)
+		cprintf(ent, PRINT_HIGH, "You have already voted\n");
+	else
 	{
-		ent->vote = YES;
+		ent->client->resp.vote = YES;
 		nop=0;
 		novy=0;
 		for_each_player(dude,i)
 		{
-			if ((dude->vote == YES) || (dude->vote == CALLED_VOTE))
+			if ((dude->client->resp.vote == YES) || (dude->client->resp.vote == CALLED_VOTE))
 				novy ++;
 			nop++;
 		}
-		gi.bprintf (PRINT_HIGH,"\n%d out of %d, have voted YES.\n\n",novy,nop);
+		gi.bprintf (PRINT_HIGH, "%d out of %d have voted YES\n", novy, nop);
 		if ((novy *2) > nop)
 		{
 			switch (level.voteset) // Papa - if you wanted to add different types of votes, you could do it here
 			{
-				case VOTE_ON_ADMIN :
+				case VOTE_ON_ADMIN:
 					for_each_player (dude,i)
 					{
-						if (dude->vote == CALLED_VOTE)
+						if (dude->client->resp.vote == CALLED_VOTE)
 						{
 							dude->client->pers.admin = ELECTED;
-							gi.bprintf (PRINT_HIGH,"%s has been elected Admin.\n",dude->client->pers.netname);
+							gi.bprintf (PRINT_HIGH, "%s has been elected admin\n", dude->client->pers.netname);
 							Cmd_CommandList_f(dude);
+							break;
 						}
 					}
+					break;
+				case VOTE_ON_MAP:
+					gi.bprintf (PRINT_HIGH, "The map change vote has passed\n");
+					if (teamplay->latched_string || dm_realmode->latched_string)
+						Com_sprintf (command, sizeof(command), "map \"%s\"\n", votemap);
+					else
+						Com_sprintf (command, sizeof(command), "gamemap \"%s\"\n", votemap);
+					gi.AddCommandString (command);
 					break;
 			}
 			for_each_player (dude,i)
 			{
-				if (dude->vote == CALLED_VOTE)
-					dude->vote = HASNT_VOTED;
+				if (dude->client->resp.vote == CALLED_VOTE)
+					dude->client->resp.vote = HASNT_VOTED;
 			}
 			level.voteset = NO_VOTES;
 		}
 	}
-	else
-		cprintf(ent,PRINT_HIGH,"There is nothing to vote on at this time!\n");
 }
-
 
 void Cmd_No_f (edict_t *ent)
 {
 	edict_t		*dude;
-	int			i,nop,novn;
+	int			i, nop, novn;
 
-	if ((level.voteset != NO_VOTES) && (ent->vote == HASNT_VOTED))
+	if (level.voteset == NO_VOTES)
+		cprintf(ent, PRINT_HIGH, "There is nothing to vote on at this time\n");
+	else if (ent->client->resp.vote != HASNT_VOTED)
+		cprintf(ent, PRINT_HIGH, "You have already voted\n");
+	else
 	{
-		ent->vote = NO;
-		nop=0;
-		novn=0;
+		ent->client->resp.vote = NO;
+		nop = 0;
+		novn = 0;
 		for_each_player(dude,i)
 		{
-			if (dude->vote == NO)
+			if (dude->client->resp.vote == NO)
 				novn ++;
 			nop++;
 		}
@@ -4154,21 +2010,21 @@ void Cmd_No_f (edict_t *ent)
 			switch (level.voteset) // Papa - if you wanted to add different types of votes, you could do it here
 			{
 				case VOTE_ON_ADMIN:
-					gi.bprintf(PRINT_HIGH,"The request for admin has been voted down!\n");
+					gi.bprintf(PRINT_HIGH, "The request for admin has been voted down\n");
+					break;
+				case VOTE_ON_MAP:
+					gi.bprintf(PRINT_HIGH, "The map change request has been voted down\n");
 					break;
 			}
 			for_each_player (dude,i)
 			{
-				if (dude->vote == CALLED_VOTE)
-					dude->vote = HASNT_VOTED;
+				if (dude->client->resp.vote == CALLED_VOTE)
+					dude->client->resp.vote = HASNT_VOTED;
 			}
 
 			level.voteset = NO_VOTES;
 		}
 	}
-	else
-		cprintf(ent,PRINT_HIGH,"There is nothing to vote on at this time.\n");
-
 }
 
 void Cmd_Vote_f (edict_t *ent, char *vote)
@@ -4178,164 +2034,186 @@ void Cmd_Vote_f (edict_t *ent, char *vote)
 	else if (Q_stricmp (vote, "no") == 0)
 		Cmd_No_f (ent);
 	else
-		cprintf(ent,PRINT_HIGH,"Vote YES or NO.  F00l.\n");
+		cprintf(ent, PRINT_HIGH, "Vote YES or NO\n");
 }
-
 
 void Cmd_Elect_f (edict_t *ent)
 {
 	edict_t		*dude;
 	int			count=0;
-	int			i,j,found;
-	edict_t		*player;
+	int			i;
 
-
-	if (disable_admin_voting) {
-		cprintf(ent,PRINT_HIGH,"Electable Admins has been disabled on this server.\n");
-		return;
-	}
-		
-	j = atoi (gi.argv(1));
-	found = FALSE;
-
-	for (i=0 ; i<maxclients->value ; i++)
+	if (disable_admin_voting)
 	{
-		player = g_edicts + 1 + i;
-		if (!player->inuse)
-			continue;
-		if (player->client->pers.admin > NOT_ADMIN)
-			found = TRUE;
-	}
-
-	if (found)
-	{
-		cprintf(ent,PRINT_HIGH,"Someone already has admin\n");
+		cprintf(ent, PRINT_HIGH, "Electable admins has been disabled on this server\n");
 		return;
 	}
 
-	if (level.voteset == NO_VOTES)  
+	dude = GetAdmin();
+	if (dude)
+	{
+		if (dude == ent)
+			cprintf(ent, PRINT_HIGH, "You already have admin\n");
+		else
+			cprintf(ent, PRINT_HIGH, "%s already has admin\n", dude->client->pers.netname);
+		return;
+	}
+
+	if (level.voteset == NO_VOTES)
 	{
 		for_each_player(dude,i)
 		{
-			dude->vote = 0;
+			dude->client->resp.vote = 0;
 			count++;
 		}
 		if (count == 1)
 		{
 			ent->client->pers.admin = ELECTED;
-			gi.bprintf (PRINT_HIGH,"%s has been elected Admin.\n",ent->client->pers.netname);
+			gi.bprintf (PRINT_HIGH, "%s has been elected admin\n", ent->client->pers.netname);
 			Cmd_CommandList_f(ent);
 			return;
 		}
-		gi.bprintf(PRINT_HIGH,"%s has requested admin privilages.\n\nPLEASE VOTE\n\n",ent->client->pers.netname);
-		ent->vote = CALLED_VOTE;
+		gi.bprintf(PRINT_CHAT, "%s has requested admin privilages. Please vote YES or NO\n", ent->client->pers.netname);
+		ent->client->resp.vote = CALLED_VOTE;
 		level.voteframe = level.framenum;
 		level.voteset= VOTE_ON_ADMIN;
 	}
-	else if (level.voteset != NO_VOTES)
-		cprintf(ent,PRINT_HIGH,"Someone else has requested admin.\n");
-
+	else
+		cprintf(ent, PRINT_HIGH, "A vote is already in progress\n");
 }
-
-
-//===================================================================================
-//===================================================================================
-
-
 
 void Cmd_MapList_f (edict_t *ent)
 {
 	int		i;
 
-	if (!num_custom_maps) {
-		cprintf(ent,PRINT_HIGH,"any map on this server may be loaded\n");
+	if (!num_maps)
+	{
+		cprintf(ent, PRINT_HIGH, "Any map on this server may be loaded\n");
 		return;
 	}
 
-	cprintf(ent,PRINT_HIGH,"Valid Maps for this server:\n");
-	for (i=0;i<num_custom_maps;i++)
-		cprintf(ent,PRINT_HIGH,"   %s\n",custom_list[i].custom_map);
+	cprintf(ent, PRINT_HIGH, "Valid maps for this server:\n");
+	i = 0;
+	if (num_maps > 20)
+		for (; i<num_maps-1; i+=2)
+			cprintf(ent, PRINT_HIGH, "   %-17s   %s\n", maplist[i], maplist[i+1]);
+	for (; i<num_maps; i++)
+		cprintf(ent, PRINT_HIGH, "   %s\n", maplist[i]);
 }
-
 
 qboolean ValidMap (char *mapname)
 {
 	int		i;
-	for (i=0;i<num_custom_maps;i++)
-		if  (!Q_stricmp(custom_list[i].custom_map,mapname))
-			return true;
-	if (!i) return true;
 
+	if (num_maps && fixed_gametype)
+	{
+		for (i=0; i<num_maps; i++)
+			if (!strcmp(maplist[i], mapname))
+				return true;
+	}
+	else
+	{
+		char filename[MAX_QPATH];
+		Com_sprintf(filename, sizeof(filename), "maps/%s.bsp", mapname);
+		if (file_exist(filename))
+			return true;
+		if (kpded2)
+		{
+			// check for an "override" file
+			Com_sprintf(filename, sizeof(filename), "maps/%s.bsp.override", mapname);
+			if (file_exist(filename))
+				return true;
+		}
+	}
 	return false;
 }
 
-
 void Cmd_ChangeMap_f (edict_t *ent)
 {
-
 	char		*s;
-	char	command [256];
+	char		command [256];
 
-	if (ent->client->pers.admin > NOT_ADMIN )
+	if (gi.argc() < 2)
 	{
-		s = gi.args();
+		cprintf(ent, PRINT_HIGH, "Usage: changemap <mapname>\n");
+		return;
+	}
 
-		if (strchr(s,'.') ||
-			!ValidMap (s)) // Always make sure the map is on the server before switching
+	s = gi.args();
+	kp_strlwr(s);
+	if (!ValidMap (s)) // Always make sure the map is on the server before switching
+	{
+		cprintf(ent, PRINT_HIGH, "%s is not a valid map\n", s);
+		return;
+	}
+
+	if (!ent->client->pers.admin)
+	{
+		if (level.voteset == NO_VOTES)  
 		{
-			cprintf(ent,PRINT_HIGH,"%s is not a valid map\n",s);
+			edict_t		*dude;
+			int			count=0;
+			int			i;
+
+			for_each_player(dude,i)
+			{
+				dude->client->resp.vote = 0;
+				count++;
+			}
+			if (count > 1)
+			{
+				strncpy(votemap, s, sizeof(votemap)-1);
+				gi.bprintf(PRINT_CHAT, "%s has requested a map change to %s. Please vote YES or NO\n", ent->client->pers.netname, votemap);
+				ent->client->resp.vote = CALLED_VOTE;
+				level.voteframe = level.framenum;
+				level.voteset= VOTE_ON_MAP;
+				return;
+			}
+		}
+		else
+		{
+			cprintf(ent, PRINT_HIGH, "You do not have admin and a vote is already in progress\n");
 			return;
 		}
-		Com_sprintf (command, sizeof(command), "map \"%s\"\n", s);
-		gi.AddCommandString (command);
 	}
+
+	if (teamplay->latched_string || dm_realmode->latched_string)
+		Com_sprintf (command, sizeof(command), "map \"%s\"\n", s);
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
-
+		Com_sprintf (command, sizeof(command), "gamemap \"%s\"\n", s);
+	gi.AddCommandString (command);
 }
-
-//===================================================================================
-//===================================================================================
-
 
 void Cmd_MatchSetup_f (edict_t *ent)
 {
-	if (ent->client->pers.admin > NOT_ADMIN )
+	if (ent->client->pers.admin > NOT_ADMIN)
 	{
 		MatchSetup ();
 		Cmd_PrintSettings_f (ent);
 	}
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin.\n");
-
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
-
-void Cmd_PublicSetup_f (edict_t *ent)
-{
-	if (ent->client->pers.admin > NOT_ADMIN )
-		PublicSetup ();
-	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin.\n");
-
-}
-
 
 void Cmd_MatchStart_f (edict_t *ent)
 {
-	if (ent->client->pers.admin > NOT_ADMIN )
+	if (ent->client->pers.admin > NOT_ADMIN)
 		MatchStart ();
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin.\n");
-
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
 void Cmd_MatchEnd_f (edict_t *ent)
 {
-	if (ent->client->pers.admin > NOT_ADMIN )
-		MatchEnd ();
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		if (level.modeset != MATCH)
+			cprintf(ent, PRINT_HIGH, "A match has not been started\n");
+		else
+			MatchEnd ();
+	}
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin.\n");
-
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
 /*void Cmd_PauseMatch_f(edict_t *ent)
@@ -4353,122 +2231,124 @@ void Cmd_MatchEnd_f (edict_t *ent)
         }
     }
     else
-		cprintf(ent,PRINT_HIGH,"You do not have admin password.\n");
+		cprintf(ent,PRINT_HIGH,"You do not have permission\n");
 }*/
 
 void Cmd_MatchScore_f (edict_t *ent)
 {
-	if (ent->client->pers.admin > NOT_ADMIN ) {
-		int t0,t1;
-		if (level.modeset!=MATCHSETUP) {
-			cprintf(ent,PRINT_HIGH,"Can only set the scores when in matchsetup mode\n");
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		int t0, t1;
+		if (level.modeset != MATCHSETUP)
+		{
+			cprintf(ent, PRINT_HIGH, "Can only set the scores when in matchsetup mode\n");
 			return;
 		}
-		if (gi.argc()!=3) {
-			cprintf(ent,PRINT_HIGH,"Usage: matchscore <drags> <nicks>\n");
+		if (gi.argc() != 3)
+		{
+			cprintf(ent, PRINT_HIGH, "Usage: matchscore <drags> <nicks>\n");
 			return;
 		}
-		t0=atoi(gi.argv(1));
-		t1=atoi(gi.argv(2));
-		if (t0>9999 || t1>9999) {
-			cprintf(ent,PRINT_HIGH,"You can not set scores that high\n");
+		t0 = atoi(gi.argv(1));
+		t1 = atoi(gi.argv(2));
+		if (t0 > 9999 || t1 > 9999)
+		{
+			cprintf(ent, PRINT_HIGH, "You can not set scores that high\n");
 			return;
 		}
-		team_startcash[0]=t0;
-		team_startcash[1]=t1;
-		gi.bprintf(PRINT_HIGH,"The match score will start at %d (%s) to %d (%s)\n",team_startcash[0],team_names[1],team_startcash[1],team_names[2]);
-	} else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+		team_startcash[0] = t0;
+		team_startcash[1] = t1;
+		gi.bprintf(PRINT_HIGH, "The match score will start at %d (%s) to %d (%s)\n", team_startcash[0], team_names[1], team_startcash[1], team_names[2]);
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
-
-//===================================================================================
-//===================================================================================
-
 
 void Cmd_SetTimeLimit_f (edict_t *ent, char *value)
 {
-	int		i = atoi (value);
-
-	if (ent->client->pers.admin > NOT_ADMIN )
-		if ((i < 0 ) || (i > 60 )) {
-			cprintf(ent,PRINT_HIGH,"Please choose a timelimit between 0 and 60\n");
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		int		i = atoi (value);
+		if ((i < 0) || (i > 60))
+		{
+			cprintf(ent, PRINT_HIGH, "Please choose a timelimit between 0 and 60\n");
 			return;
-		} else {
-			gi.cvar_set("timelimit",value);
-			gi.bprintf(PRINT_HIGH,"The Timelimit has been changed to %d.\n",i);
-			gi.cvar_set(TIMENAME,"");
 		}
-
+		gi.cvar_set("timelimit", value);
+		gi.bprintf(PRINT_HIGH, "The timelimit has been changed to %d\n", i);
+		UpdateTime();
+	}
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
 void Cmd_SetClientIdle_f (edict_t *ent, char *value)
 {
-	int		i = atoi (value);
-
-	if (ent->client->pers.admin > NOT_ADMIN )
-		if (i < 120) {
-			cprintf(ent,PRINT_HIGH,"Please enter a value greater than 120 seconds\n");
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		int		i = atoi (value);
+		if (i < 60)
+		{
+			cprintf(ent, PRINT_HIGH, "Please choose an idle time of at least 60\n");
 			return;
-		} else {
-			gi.cvar_set("idle_client",value);
-			gi.bprintf(PRINT_HIGH,"The Idle Client time has been changed to %d.\n",i);
 		}
-
+		gi.cvar_set("idle_client", value);
+		gi.bprintf(PRINT_HIGH, "The idle time has been changed to %d seconds\n", i);
+	}
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n\n");
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
 void Cmd_SetFragLimit_f (edict_t *ent, char *value)
 {
-	int		i = atoi (value);
-
-	if (ent->client->pers.admin > NOT_ADMIN )
-		if (i < 0 ) 
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		int		i = atoi (value);
+		if (i < 0) 
 		{
-			cprintf(ent,PRINT_HIGH,"Please choose a Positive Fraglimit\n");
+			cprintf(ent, PRINT_HIGH, "Please choose a positive fraglimit\n");
 			return;
 		}
-		else
-		{
-			gi.bprintf(PRINT_HIGH,"The Fraglimit has been changed to %d.\n",i);
-			gi.cvar_set("fraglimit",value);
-		}
+		gi.cvar_set("fraglimit", value);
+		gi.bprintf(PRINT_HIGH, "The fraglimit has been changed to %d\n", i);
+	}
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
 void Cmd_SetCashLimit_f (edict_t *ent, char *value)
 {
-	int		i = atoi (value);
-
-	if (ent->client->pers.admin > NOT_ADMIN )
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		int		i = atoi (value);
 		if (i < 0 ) 
 		{
-			cprintf(ent,PRINT_HIGH,"Please choose a Positive Cashlimit\n");
+			cprintf(ent, PRINT_HIGH, "Please choose a positive cashlimit\n");
 			return;
 		}
-		else
-		{
-			gi.bprintf(PRINT_HIGH,"The Cashlimit has been changed to %d.\n",i);
-			gi.cvar_set("cashlimit",value);
-		}
+		gi.cvar_set("cashlimit", value);
+		gi.bprintf(PRINT_HIGH, "The cashlimit has been changed to %d\n",i);
+	}
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
 void Cmd_SetDmFlags_f (edict_t *ent, char *value)
 {
-	if (ent->client->pers.admin > NOT_ADMIN ) {
-		if (fixed_gametype)
-			cprintf(ent,PRINT_HIGH,"This server's game type may not be changed\n");
-		else {
-			gi.bprintf(PRINT_HIGH,"dmflags has been changed to %s.\n",value);
-			gi.cvar_set("dmflags",value);
-		}
-	} else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		int i;
+		if (value[0]=='+')
+			i = (int)dmflags->value | atoi(value+1);
+		else if (value[0]=='-')
+			i = (int)dmflags->value & ~atoi(value+1);
+		else
+			i = atoi(value);
+		gi.cvar_set("dmflags", va("%i", i));
+		gi.bprintf(PRINT_HIGH, "dmflags has been changed to %d\n", i);
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
 /*void Cmd_Clear_f (edict_t *ent)
@@ -4479,617 +2359,618 @@ void Cmd_SetDmFlags_f (edict_t *ent, char *value)
 	ent->client->pers.currentcash = 0;
 	ent->client->resp.acchit = ent->client->resp.accshot = 0;
 	memset(ent->client->resp.fav,0,8*sizeof(int));
-	gi.bprintf(PRINT_HIGH,"%s cleared its score!\n",ent->client->pers.netname);
+	gi.bprintf(PRINT_HIGH,"%s cleared its score\n",ent->client->pers.netname);
 }*/
 
 void Cmd_SetRealMode_f (edict_t *ent, char *value)
 {
-	if (ent->client->pers.admin > NOT_ADMIN ) {
-		CHECKFIXED("dm_realmode");
-	} else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		if (fixed_gametype)
+		{
+			cprintf(ent, PRINT_HIGH, "This server's game type may not be changed\n");
+			return;
+		}
+		gi.cvar_set("dm_realmode", value);
+		cprintf(ent, PRINT_HIGH, "This setting will take effect with a map change\n");
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
-
 
 void Cmd_SetPassword_f (edict_t *ent, char *value)
 {
-	if (ent->client->pers.admin > NOT_ADMIN ) {
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
 		if (enable_password)
-			gi.cvar_set("password",value);
+			gi.cvar_set("password", value);
 		else
-			cprintf(ent,PRINT_HIGH,"The password option is disabled\n");
-	} else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+			cprintf(ent, PRINT_HIGH, "The password option is disabled\n");
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
 void Cmd_SetTeamplay_f (edict_t *ent, char *value)
 {
-	int		i;
-
-	i = atoi (value);
-	if ((i == 0) || (i == 1) || (i== 4))
-		if (ent->client->pers.admin > NOT_ADMIN ) {
-			CHECKFIXED("teamplay");
-		} else
-			cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		int		i = atoi (value);
+		if (fixed_gametype)
+		{
+			cprintf(ent, PRINT_HIGH, "This server's game type may not be changed\n");
+			return;
+		}
+		if (value[0] && (i == 0) || (i == 1) || (i == 4))
+		{
+			gi.cvar_set("teamplay", value);
+			cprintf(ent, PRINT_HIGH, "This setting will take effect with a map change\n");
+		}
+		else
+			cprintf(ent, PRINT_HIGH, "Teamplay settings are as follows:\n 0: Standard DM\n 1: Bagman\n 4: Team DM\n");
+	}
 	else
-		cprintf(ent,PRINT_HIGH,"Teamplay settings are as follows:\n 0: Free for all DM\n 1: Bagman\n 4: Team DM\n");
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
+}
+
+void Cmd_SetBonus_f (edict_t *ent, char *value)
+{
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		int		i = atoi (value);
+		if (i < 0) 
+		{
+			cprintf(ent, PRINT_HIGH, "Please choose a positive bonus hit deficit\n");
+			return;
+		}
+		gi.cvar_set("bonus", value);
+		gi.bprintf(PRINT_HIGH, "The bonus hit deficit has been changed to %d\n", i);
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
 void Cmd_ResetServer_f (edict_t *ent)
 {
 	if (ent->client->pers.admin > NOT_ADMIN || ent->client->pers.rconx[0]) 
-		ResetServer();
+		ResetServer(false);
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin or rconx\n");
+		cprintf(ent, PRINT_HIGH, "You do not have permission\n");
 }
 
 void Cmd_Toggle_ASC_f (edict_t *ent)
 {
-    
-    if (ent->client->pers.admin > NOT_ADMIN)
-    {
-       // if(!(deathmatch->value && dm_realmode->value))
-       // {
-            if(anti_spawncamp->value)
-            {
-                gi.cvar_set("anti_spawncamp","0");
-                cprintf(ent,PRINT_HIGH,"Anti-spawn camping is off!\n");
-            }
-            else
-            {
-                gi.cvar_set("anti_spawncamp","1");
-                cprintf(ent,PRINT_HIGH,"Anti-spawn camping is on!\n");
-            }
-                
-       // }
-      //  else
-      //      cprintf(ent,PRINT_HIGH,"No Anti-spawn camping in RealMode\n");
-    }
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		if (anti_spawncamp->value)
+		{
+			gi.cvar_set("anti_spawncamp", "0");
+			gi.bprintf(PRINT_HIGH, "Anti-spawn camping is now off\n");
+		}
+		else
+		{
+			gi.cvar_set("anti_spawncamp", "1");
+			gi.bprintf(PRINT_HIGH, "Anti-spawn camping is now on\n");
+		}
+	}
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
-void Cmd_ToggleSpec_f(edict_t *ent)
+void Cmd_Toggle_Bunny_f (edict_t *ent)
 {
-    
-    if (ent->client->pers.admin > ELECTED)
-    {
-            if(no_spec->value)
-            {
-                gi.cvar_set("no_spec","0");
-                cprintf(ent,PRINT_HIGH,"Spectating is enabled!\n");
-            }
-            else
-            {
-                gi.cvar_set("no_spec","1");
-                cprintf(ent,PRINT_HIGH,"Spectating is disabled!\n");
-            }
-    }
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		gi.cvar_set("dmflags", va("%i", (int)dmflags->value ^ DF_NO_BUNNY));
+		if ((int)dmflags->value & DF_NO_BUNNY)
+			gi.bprintf(PRINT_HIGH, "Bunny-hopping is now disabled\n");
+		else
+			gi.bprintf(PRINT_HIGH, "Bunny-hopping is now enabled\n");
+	}
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have the admin password\n");
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
 }
 
-void Cmd_BanDicks_f(edict_t *ent, int type)	
+void Cmd_Toggle_Spec_f(edict_t *ent)
 {
-    char	filename[32],dir[32],*value;
-    cvar_t	*game_dir;	
-    FILE 	*list;
-
-    if (ent==NULL) goto dick;  // via sv rcon
-    
-    if (ent->client->pers.admin > ELECTED || ent->client->pers.rconx[0]) 
-    {
-       dick:
-    
-        if (!gi.argv(2) || !*gi.argv(2)) 
-        {
-            if(type)
-                gi.cprintf(ent, PRINT_HIGH,"USAGE: banip <ip>\n");
-            else
-             gi.cprintf(ent, PRINT_HIGH,"USAGE: banname <name>\n");		
-            return;
-        } 
-    
-        value = gi.argv(2);
-    
-        game_dir = gi.cvar("game", "", 0);
-        if (game_dir->string[0]==0)
-            strcpy(dir, "main");
-        else
-            strcpy(dir, game_dir->string);
-    
-        if (type) //ip
-        {
-            if (ban_ip_filename[0]) 
-            {
-                Com_sprintf (filename, sizeof(filename), "%s"DIR_SLASH"%s",dir, ban_ip_filename);
-                list = fopen(filename, "a");
-                fprintf(list,"%s\n", value);
-                fclose(list);
-                gi.cprintf(ent, PRINT_HIGH, "Bans will take effect on map change\n");
-            }
-            else
-                gi.cprintf(ent, PRINT_HIGH, "IP banning is disabled!\n");
-        }
-        else //name
-        {
-            if (ban_name_filename[0]) 
-            {
-                Com_sprintf (filename, sizeof(filename), "%s"DIR_SLASH"%s",dir, ban_name_filename);
-                list = fopen(filename, "a");
-                fprintf(list,"%s\n", value);
-                fclose(list);
-                gi.cprintf(ent, PRINT_HIGH, "Bans will take effect on map change\n");
-            }
-            else
-                gi.cprintf(ent, PRINT_HIGH, "Name banning is disabled!\n");
-        }
-    }
-    else
-        gi.cprintf(ent,PRINT_HIGH,"You do not have admin or rconx password\n");
-}
-
-void Cmd_ListDicks_f(edict_t *ent)	
-{
-    char	filename[32],dir[32];
-    char	buffer[MAX_STRING_LENGTH];
-    cvar_t	*game_dir;	
-    FILE 	*list;
-    
-    
-    if (ent==NULL) goto dick2;  // via sv rcon
-    
-    if (ent->client->pers.admin > ELECTED || ent->client->pers.rconx[0]) 
-    {
-        dick2:
-    
-        game_dir = gi.cvar("game", "", 0);
-        if (game_dir->string[0]==0)
-            strcpy(dir, "main");
-        else
-            strcpy(dir, game_dir->string);
-    
-        if (ban_ip_filename[0]) 
-        {
-            Com_sprintf (filename, sizeof(filename), "%s"DIR_SLASH"%s",dir, ban_ip_filename);
-            list = fopen(filename, "r");
-            
-            gi.cprintf(ent, PRINT_HIGH, "List of banned IP addresses\n===========================\n");         
-            
-            while (!feof(list))	// while there's still stuff
-            {
-                // Read first line of the file
-                fgetline(list, buffer);
-
-                // Make sure the line's not empty
-                if (strlen(buffer) == 0 || buffer[0] == '\n') continue;
-                
-                // Check to see if this is a comment line
-                if (buffer[0] == '/' && buffer[1] == '/') continue;
-
-                gi.cprintf(ent, PRINT_HIGH, "%s\n", buffer);
-            }
-
-            gi.cprintf(ent, PRINT_HIGH, "\n"); // cosmetic stuff
-
-            fclose(list);
-        }
-        else
-            gi.cprintf(ent, PRINT_HIGH, "IP banning is disabled!\n");
-    
-        if (ban_name_filename[0]) 
-        {
-            Com_sprintf (filename, sizeof(filename), "%s"DIR_SLASH"%s",dir, ban_name_filename);
-            list = fopen(filename, "r");
-            
-            gi.cprintf(ent, PRINT_HIGH, "List of banned names\n====================\n");
-            
-            while (!feof(list))	// while there's still stuff
-            {
-                // Read first line of the file
-                fgetline(list, buffer);
-
-                // Make sure the line's not empty
-                if (strlen(buffer) == 0 || buffer[0] == '\n') continue;
-                
-                // Check to see if this is a comment line
-                if (buffer[0] == '/' && buffer[1] == '/') continue;
-                
-                gi.cprintf(ent, PRINT_HIGH, "%s\n", buffer);
-            }
-
-            gi.cprintf(ent, PRINT_HIGH, "\n"); // cosmetic stuff
-            
-            fclose(list);
-        }
-        else
-            gi.cprintf(ent, PRINT_HIGH, "Name banning is disabled!\n");
-    }
-    else 
-        gi.cprintf(ent,PRINT_HIGH,"You do not have admin or rconx password\n");
-    
-}
-
-void Cmd_ToggleShadows_f(edict_t *ent)
-{
-    
-    if (ent->client->pers.admin > NOT_ADMIN)
-    {
-            if(no_shadows->value)
-            {
-                gi.cvar_set("no_shadows","0");
-                cprintf(ent,PRINT_HIGH,"Shadows are now on/off depending on client settings!\n");
-            }
-            else
-            {
-                gi.cvar_set("no_shadows","1");
-                cprintf(ent,PRINT_HIGH,"Shadows are now disabled!\n");
-            }
-    }
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		if (level.modeset < MATCHSETUP || level.modeset > MATCH)
+		{
+			cprintf(ent, PRINT_HIGH, "Spectating can only be disabled in match mode\n");
+			return;
+		}
+		if (no_spec->value)
+		{
+			gi.cvar_set("no_spec", "0");
+			gi.bprintf(PRINT_HIGH, "Spectating is now enabled\n");
+		}
+		else
+		{
+			gi.cvar_set("no_spec", "1");
+			gi.bprintf(PRINT_HIGH, "Spectating is now disabled\n");
+			if (level.modeset == MATCH)
+			{
+				int		i;
+				edict_t	*dood;
+				for_each_player(dood, i)
+				{
+					if (dood->client->pers.spectator == SPECTATING && !dood->client->pers.admin && !dood->client->pers.rconx[0])
+					{
+						int save = dood->client->showscores;
+						PutClientInServer(dood);
+						dood->client->showscores = (save ? save : SCOREBOARD);
+					}
+				}
+			}
+		}
+	}
 	else
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n");
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
+}
+
+void Cmd_Toggle_Shadows_f(edict_t *ent)
+{
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		if (no_shadows->value)
+		{
+			gi.cvar_set("no_shadows", "0");
+			gi.bprintf(PRINT_HIGH, "Shadows are now on (if enabled by client)\n");
+		}
+		else
+		{
+			gi.cvar_set("no_shadows", "1");
+			gi.bprintf(PRINT_HIGH, "Shadows are now off\n");
+		}
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
+}
+
+void Cmd_Toggle_Zoom_f(edict_t *ent)
+{
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		if (no_zoom->value)
+		{
+			gi.cvar_set("no_zoom", "0");
+			gi.bprintf(PRINT_HIGH, "FOV zooming is now enabled\n");
+		}
+		else
+		{
+			gi.cvar_set("no_zoom", "1");
+			gi.bprintf(PRINT_HIGH, "FOV zooming is now disabled\n");
+		}
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
+}
+
+void Cmd_AntiLag_f(edict_t *ent, char *value)
+{
+	if (!value[0])
+	{
+		cprintf(ent, PRINT_HIGH, "Usage: antilag <0/1>\n0 = off, 1 = on (if enabled by server)\n");
+		return;
+	}
+	ent->client->pers.noantilag = !atoi(value);
+	// put it in a client variable (survives server resets)
+	gi.WriteByte(svc_stufftext);
+	gi.WriteString(va("set antilag \"%s\"\n", value));
+	gi.unicast(ent, true);
 }
 
 void Cmd_Status_f(edict_t *ent)
 {
-    if (ent->client->pers.admin > ELECTED) 
-    {
-        int a;
-        
-        cprintf(ent,PRINT_HIGH,"map              : %s\n",level.mapname);
-        cprintf(ent,PRINT_HIGH,"num score ping name            address               ver  rconx\n");
-        cprintf(ent,PRINT_HIGH,"--- ----- ---- --------------- --------------------- ---- -----\n");
-        for (a=1;a<=maxclients->value;a++) {
-            if (g_edicts[a].inuse && g_edicts[a].client) {
-                gclient_t *c=g_edicts[a].client;
-                cprintf(ent,PRINT_HIGH,"%3d",a-1);
-                cprintf(ent,PRINT_HIGH," %5d",c->resp.score);
-                cprintf(ent,PRINT_HIGH," %4d",c->ping);
-                cprintf(ent,PRINT_HIGH," %-15s",c->pers.netname);
-                cprintf(ent,PRINT_HIGH," %-21s",c->pers.ip);
-                cprintf(ent,PRINT_HIGH," %.2f",(float)c->pers.version/100.0);
-                cprintf(ent,PRINT_HIGH,"  %s\n",c->pers.rconx[0]?"yes":"");
-            }
-        }
-    }
-    else
-        cprintf(ent,PRINT_HIGH,"You do not have admin password.");
-}
+	if (ent->client->pers.admin > ELECTED || ent->client->pers.rconx[0])
+	{
+		int a;
 
-void Cmd_SetTeamName_f (edict_t *ent, int team, char *name) 
-{ 
-	if (!name || !*name) return; 
-	if (ent->client->pers.admin > NOT_ADMIN ) { 
-		if (strlen(name)<16 && name[0]!=' ') 
+		cprintf(ent, PRINT_HIGH, "map : %s\n", level.mapname);
+		cprintf(ent, PRINT_HIGH, "num score ping name            lastmsg address               ver\n"
+			"--- ----- ---- --------------- ------- --------------------- ----\n");
+		for (a=1; a<=maxclients->value; a++)
 		{
-			if(memalloced[team])
-				free(team_names[team]);
-
-			team_names[team] = (char *)malloc(16);
-			if(team_names[team]==NULL)
-				cprintf(ent, PRINT_HIGH,"Insufficient memory available\n" );
-			else
+			gclient_t *c = g_edicts[a].client;
+			if (c && (g_edicts[a].inuse || (c->pers.connected && (kpded2 || curtime-c->pers.lastpacket < 120000))))
 			{
-				memalloced[team] = 1;
-				sprintf(team_names[team], "%s", name);
-				// snap - team tags
-				level.manual_tagset = 1;
+				char buf[16];
+				sprintf(buf, g_edicts[a].inuse ? "%d" : "CNCT", c->ping);
+				cprintf(ent, PRINT_HIGH, "%3d %5d %4s %-15s %7d %-21s %.2f\n",
+					a-1, c->resp.score, buf, c->pers.netname, curtime-c->pers.lastpacket, c->pers.ip, c->pers.version/100.0);
 			}
 		}
-		else 
-			cprintf(ent,PRINT_HIGH,"Team name can't be bigger than 15 letters\nand/or can't start with whitespace character!\n"); 
-	} 
-	else 
-		cprintf(ent,PRINT_HIGH,"You do not have admin\n"); 
-} 
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have permission\n");
+}
 
-//===================================================================================
-//===================================================================================
+void Cmd_SetTeamName_f (edict_t *ent, int team, char *name)
+{
+	if (!name || !*name) return;
+	if (ent->client->pers.admin > NOT_ADMIN)
+	{
+		if (strlen(name) < 16 && name[0] != ' ')
+		{
+			setTeamName(team, name);
+			manual_tagset = 1;
+			UpdateTeams();
+		}
+		else
+			cprintf(ent, PRINT_HIGH, "Team name can't be longer than 15 letters or start with whitespace\n");
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n");
+}
 
 void Cmd_Admin_f (edict_t *ent, char *value)
 {
-	int			i,found;
-	edict_t		*player;
-
-	if (!admincode[0]) {
-		cprintf(ent,PRINT_HIGH,"The admin option is disabled\n");
+	if (!admincode[0] && !ent->client->pers.rconx[0])
+	{
+		cprintf(ent, PRINT_HIGH, "The admin option is disabled\n");
 		return;
 	}
-
-	if (value && !Q_stricmp(admincode, value))
+	if (ent->client->pers.admin == ADMIN)
 	{
-		found = FALSE;
-
-		for (i=0 ; i<maxclients->value ; i++)
+		cprintf(ent, PRINT_HIGH, "You already have admin\n");
+		return;
+	}
+	if (!Q_stricmp(admincode, value) || ent->client->pers.rconx[0])
+	{
+		if (!ent->client->pers.admin)
 		{
-			player = g_edicts + 1 + i;
-			if (!player->inuse)
-				continue;
-			if (player->client->pers.admin == ADMIN)
-				found = ADMIN;
-			else if (player->client->pers.admin == ELECTED)
-			{	
-				player->client->pers.admin = NOT_ADMIN;
-				gi.bprintf(PRINT_HIGH,"%s has been removed from admin\n", player->client->pers.netname);
-				found = ELECTED;
+			edict_t *admin = GetAdmin();
+			if (admin)
+			{
+				if (admin->client->pers.admin == ADMIN)
+				{
+					cprintf(ent, PRINT_HIGH, "%s already has admin\n", admin->client->pers.netname);
+					return;
+				}
+				else
+				{
+					admin->client->pers.admin = NOT_ADMIN;
+					gi.bprintf(PRINT_HIGH, "%s has been removed from admin\n", admin->client->pers.netname);
+				}
 			}
+			gi.bprintf(PRINT_HIGH, "%s is now admin\n", ent->client->pers.netname);
 		}
-
-		if (found == ADMIN)
-		{
-			cprintf(ent,PRINT_HIGH,"Someone already has admin\n");
-			return;
-		}
-
 		ent->client->pers.admin = ADMIN;
-		gi.bprintf(PRINT_HIGH,"%s is now admin.\n",ent->client->pers.netname);
 		Cmd_CommandList_f(ent);
+		if (level.voteset == VOTE_ON_ADMIN)
+			level.voteset = NO_VOTES;
 	}
 	else
-		cprintf(ent,PRINT_HIGH,"** COMMAND FAILED ** Wrong admin code\n");
+		cprintf(ent, PRINT_HIGH, "Incorrect admin code\n");
 }
 
 void Cmd_Resign_f (edict_t *ent)
 {
-	if (ent->client->pers.admin > NOT_ADMIN ) 
+	if (ent->client->pers.admin > NOT_ADMIN) 
 	{
 		ent->client->pers.admin = NOT_ADMIN;
-//		admin_name[0] = 0;
-		cprintf(ent,PRINT_HIGH,"You are no longer admin.\n");
-
+		gi.bprintf(PRINT_HIGH, "%s is no longer admin\n", ent->client->pers.netname);
 	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have admin\n"); 
 }
 
-
-
-//===================================================================================
-//===================================================================================
-
-void checkkick(edict_t *ent,char *cmd, char *action)
+void Cmd_BanDicks_f(edict_t *ent, int type)	
 {
-	int a, reason;
+	char	filename[64], dir[32], *value;
+	cvar_t	*game_dir;	
+	FILE 	*list;
+
+	if (ent == NULL  // via sv rcon
+		|| ent->client->pers.admin > ELECTED || ent->client->pers.rconx[0]) 
+	{
+		if (!gi.argv(2) || !*gi.argv(2)) 
+		{
+			if (type)
+				gi.cprintf(ent, PRINT_HIGH, "Usage: banip <ip>\n");
+			else
+				gi.cprintf(ent, PRINT_HIGH, "Usage: banname <name>\n");		
+			return;
+        } 
+    
+		value = gi.argv(2);
+    
+		game_dir = gi.cvar("game", "", 0);
+		strcpy(dir, game_dir->string[0] ? game_dir->string : "main");
+    
+		if (type) //ip
+		{
+			if (ban_ip_filename[0]) 
+			{
+				Com_sprintf (filename, sizeof(filename), "%s/%s",dir, ban_ip_filename);
+				list = fopen(filename, "a");
+				if (!list)
+				{
+					gi.cprintf(ent, PRINT_HIGH, "Failed to open banned IPs file\n");
+					return;
+				}
+				fprintf(list,"%s\n", value);
+				fclose(list);
+				if (num_ips < 100)
+				{
+					strncpy(ip[num_ips].value, value, 16);
+					num_ips++;
+				}
+			}
+			else
+				gi.cprintf(ent, PRINT_HIGH, "IP banning is disabled\n");
+		}
+		else //name
+		{
+			if (ban_name_filename[0]) 
+			{
+				Com_sprintf (filename, sizeof(filename), "%s/%s",dir, ban_name_filename);
+				list = fopen(filename, "a");
+				if (!list)
+				{
+					gi.cprintf(ent, PRINT_HIGH, "Failed to open banned names file\n");
+					return;
+				}
+				fprintf(list,"%s\n", value);
+				fclose(list);
+				if (num_netnames < 100)
+				{
+					strncpy(netname[num_netnames].value, value, 16);
+					num_netnames++;
+				}
+			}
+			else
+				gi.cprintf(ent, PRINT_HIGH, "Name banning is disabled\n");
+		}
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have permission\n");
+}
+
+void Cmd_ListBans_f(edict_t *ent)
+{
+	int		a;
+
+	if (ent == NULL  // via sv rcon
+		|| ent->client->pers.admin > ELECTED || ent->client->pers.rconx[0]) 
+	{
+		if (ban_ip_filename[0]) 
+		{
+			gi.cprintf(ent, PRINT_HIGH, "List of banned IP addresses\n===========================\n");         
+			for (a=0; a<num_ips; a++)
+				gi.cprintf(ent, PRINT_HIGH, "%s\n", ip[a].value);
+			gi.cprintf(ent, PRINT_HIGH, "\n"); // cosmetic stuff
+		}
+		else
+			gi.cprintf(ent, PRINT_HIGH, "IP banning is disabled\n");
+    
+		if (ban_name_filename[0]) 
+		{
+			gi.cprintf(ent, PRINT_HIGH, "List of banned names\n====================\n");
+			for (a=0; a<num_netnames; a++)
+				gi.cprintf(ent, PRINT_HIGH, "%s\n", netname[a].value);
+			gi.cprintf(ent, PRINT_HIGH, "\n"); // cosmetic stuff
+		}
+		else
+			gi.cprintf(ent, PRINT_HIGH, "Name banning is disabled\n");
+	}
+	else 
+		cprintf(ent, PRINT_HIGH, "You do not have permission\n");
+}
+
+void checkkick(edict_t *ent, char *cmd, char *action)
+{
+	int a;
 	char *name;
 
-	if (gi.argc()<3 || gi.argc()>4) {
-		cprintf(ent,PRINT_HIGH,"Usage: %s <userid> <reason>\nNOTE: <reason> is optional\n",cmd);
+	if (gi.argc() < 3 || gi.argc() > 4)
+	{
+		cprintf(ent, PRINT_HIGH, "Usage: %s <userid> <reason>\nNOTE: <reason> is optional\n", cmd);
 		return;
 	}
 
- //   cprintf(ent,PRINT_HIGH,"There are %i argc used\n", gi.argc());
-
-	if(gi.argc()==4) reason = 1;
-
-	name=gi.argv(2);
-	a=atoi(name);
-	if (!strcmp(name,"0") || (a>0 && a<maxclients->value)) {
+	name = gi.argv(2);
+	a = atoi(name);
+	if (!strcmp(name,"0") || (a > 0 && a < maxclients->value))
+	{
 		a++;
 		if (g_edicts[a].inuse && g_edicts[a].client)
 		{
-		//	gi.bprintf(PRINT_HIGH,"%s is being %s by %s\n",g_edicts[a].client->pers.netname,action,ent->client->pers.netname);
-			if(reason)
-    			gi.bprintf(PRINT_HIGH,"%s is being %s by %s because %s\n",g_edicts[a].client->pers.netname,action,ent->client->pers.netname,gi.argv(3));
+			if (gi.argc() == 4)
+    			gi.bprintf(PRINT_HIGH, "%s is being %s by %s because %s\n", g_edicts[a].client->pers.netname, action, ent->client->pers.netname, gi.argv(3));
 			else
-				gi.bprintf(PRINT_HIGH,"%s is being %s by %s\n",g_edicts[a].client->pers.netname,action,ent->client->pers.netname);
+				gi.bprintf(PRINT_HIGH, "%s is being %s by %s\n", g_edicts[a].client->pers.netname, action, ent->client->pers.netname);
 		}
 		else
-			cprintf(ent,PRINT_HIGH,"Client %s is not active\n",name);
-	} else {
-		for (a=1;a<=maxclients->value;a++)
+			cprintf(ent, PRINT_HIGH, "Client %s is not active\n", name);
+	}
+	else
+	{
+		for (a=1; a<=maxclients->value; a++)
 			if (g_edicts[a].inuse && g_edicts[a].client
-				&& !Q_strcasecmp(g_edicts[a].client->pers.netname,name)) break;
-		if (a>maxclients->value)
+				&& !Q_strcasecmp(g_edicts[a].client->pers.netname, name)) break;
+		if (a > maxclients->value)
 			cprintf(ent,PRINT_HIGH,"Userid %s is not on the server\n",name);
 		else
 		{
-			if(reason)
-    			gi.bprintf(PRINT_HIGH,"%s is being %s by %s because %s\n",g_edicts[a].client->pers.netname,action,ent->client->pers.netname,gi.argv(3));
+			if (gi.argc() == 4)
+    			gi.bprintf(PRINT_HIGH, "%s is being %s by %s because %s\n", g_edicts[a].client->pers.netname, action, ent->client->pers.netname, gi.argv(3));
 			else
-				gi.bprintf(PRINT_HIGH,"%s is being %s by %s\n",g_edicts[a].client->pers.netname,action,ent->client->pers.netname);
-
+				gi.bprintf(PRINT_HIGH, "%s is being %s by %s\n", g_edicts[a].client->pers.netname, action, ent->client->pers.netname);
 		}
 	}
 }
 
 void dumpuser(edict_t *ent, edict_t *target)
 {
-	char *info=target->client->pers.userinfo,*s,buf[64];
+	char *info = target->client->pers.userinfo, *s, buf[64];
 
-	cprintf(ent,PRINT_HIGH,"userinfo\n--------\n");
-	while (*info) {
-		if (*info=='\\') info++;
-		s=info;
-		while (*s && *s!='\\') s++;
-		if (!*s) return;
-		memcpy(buf,info,(int)s-(int)info);
-		buf[(int)s-(int)info]=0;
-		info=++s;
-		cprintf(ent,PRINT_HIGH,"%-20s",buf);
-		while (*s && *s!='\\') s++;
-		memcpy(buf,info,(int)s-(int)info);
-		buf[(int)s-(int)info]=0;
-		info=++s;
-		cprintf(ent,PRINT_HIGH,"%s\n",buf);
+	cprintf(ent, PRINT_HIGH, "userinfo\n--------\n");
+	while (*info == '\\')
+	{
+		s = ++info;
+		while (*s!='\\')
+		{
+			if (!*s) return;
+			s++;
+		}
+		memcpy(buf, info, s - info);
+		buf[s - info] = 0;
+		info = ++s;
+		while (*s && *s != '\\') s++;
+		cprintf(ent, PRINT_HIGH, "%-19s %.*s\n", buf, s - info, info);
+		info = s;
 	}
-
-	cprintf(ent,PRINT_HIGH,"%s\n",s);
-
 }
 
 void Cmd_Mute_f (edict_t *ent, char *value)
 {
-    
-   if (ent->client->pers.admin > ELECTED || ent->client->pers.rconx[0]) 
-    {
- 
-       int		i;
-       i = atoi (value);
-       
-       if ((!value || !*value) || (i<0 || (i+1)>maxclients->value))
-       {
-           cprintf (ent,PRINT_HIGH,"Unable to find client id match\n");
-           cprintf (ent,PRINT_HIGH,"Usage: mute <client id>\nNOTE: client id can be seen by using the 'status' command\n");
-           return; 
-       }  
-       
-       if(g_edicts[i+1].inuse && g_edicts[i+1].client)
-       {
-           if(g_edicts[i+1].client->pers.mute == 0)
-           {
-               cprintf(ent,PRINT_HIGH,"Enabled Mute On: %s\n",g_edicts[i+1].client->pers.netname);
-               cprintf(&g_edicts[i+1], PRINT_HIGH, "Admin has 'muted' you\n");
-               g_edicts[i+1].client->pers.mute = 1; 
-           }
-           else
-           {
-               cprintf(ent,PRINT_HIGH,"Disabled Mute On: %s\n",g_edicts[i+1].client->pers.netname);
-               cprintf(&g_edicts[i+1], PRINT_HIGH, "Admin has 'unmuted' you\n");
-               g_edicts[i+1].client->pers.mute = 0; 
-           }
-       }
- 
-    }
-    else
-		cprintf(ent,PRINT_HIGH,"You do not have admin password or rconx\n");
+	if (ent == NULL  // via sv rcon
+		|| ent->client->pers.admin > ELECTED || ent->client->pers.rconx[0]) 
+	{
+		int		i = atoi (value);
+		if (!*value || (i < 0 || (i+1) > maxclients->value) || !(g_edicts[i+1].inuse && g_edicts[i+1].client))
+		{
+			if (*value) gi.cprintf (ent, PRINT_HIGH, "Unable to find client id match\n");
+			gi.cprintf (ent, PRINT_HIGH, "Usage: mute <userid>\n");
+			return; 
+		}  
+		if (g_edicts[i+1].client->pers.mute == 0)
+		{
+			gi.cprintf(ent, PRINT_HIGH, "Enabled mute on %s\n", g_edicts[i+1].client->pers.netname);
+			cprintf(&g_edicts[i+1], PRINT_HIGH, "Admin has muted you\n");
+			g_edicts[i+1].client->pers.mute = 1; 
+		}
+		else
+		{
+			gi.cprintf(ent, PRINT_HIGH, "Disabled mute on %s\n", g_edicts[i+1].client->pers.netname);
+			cprintf(&g_edicts[i+1], PRINT_HIGH, "Admin has unmuted you\n");
+			g_edicts[i+1].client->pers.mute = 0; 
+		}
+	}
+	else
+		cprintf(ent, PRINT_HIGH, "You do not have permission\n");
 }
 
 void Cmd_Rcon_f (edict_t *ent)
 {
-	char *cmd,cmdline[256];
+	char *cmd, cmdline[256];
 	int a;
 
-	if (!num_rconx_pass) {
-		cprintf(ent,PRINT_HIGH,"The rconx options are disabled\n");
+	if (!num_rconx_pass)
+	{
+		cprintf(ent, PRINT_HIGH, "The rconx options are disabled\n");
 		return;
 	}
 
-	if (!ent->client->pers.rconx[0]) {
-		cprintf(ent,PRINT_HIGH,"You must login with \"rconx_login\" before using \"rconx\"\n");
+	if (!ent->client->pers.rconx[0])
+	{
+		cprintf(ent, PRINT_HIGH, "You must login with \"rconx_login\" before using \"rconx\"\n");
 		return;
 	}
 
-	if (gi.argc()<2) return;
-	cmd=gi.argv(1);
-	if (!Q_strncasecmp(cmd,"rcon",4)) return;
+	if (gi.argc() < 2) return;
+	cmd = gi.argv(1);
+	if (!Q_strncasecmp(cmd, "rcon", 4)) return;
 
-	strcpy(cmdline,cmd);
-	for (a=2;a<gi.argc();a++) {
-
+	strcpy(cmdline, cmd);
+	for (a=2; a<gi.argc(); a++)
+	{
 		// reason hack
-		if((!Q_stricmp(cmd,"kick") || !Q_stricmp(cmd,"kickban")) 
-		&& gi.argc()==4 
-		&& a==3) break;
+		if ((!Q_stricmp(cmd, "kick") || !Q_stricmp(cmd, "kickban")) 
+		&& gi.argc() == 4 
+		&& a == 3) break;
     
-		strcat(cmdline," \"");
-		strcat(cmdline,gi.argv(a));
-		strcat(cmdline,"\"");
+		strcat(cmdline, " \"");
+		strcat(cmdline, gi.argv(a));
+		strcat(cmdline, "\"");
 	}
-	gi.dprintf("rconx (%s:%s) %s\n",ent->client->pers.netname,ent->client->pers.rconx,cmdline);
+	gi.dprintf("rconx (%s:%s) %s\n", ent->client->pers.netname, ent->client->pers.rconx, cmdline);
 
-	if (!Q_stricmp(cmd,"status")) {
-		cprintf(ent,PRINT_HIGH,"map              : %s\n",level.mapname);
-		cprintf(ent,PRINT_HIGH,"num score ping name            address               ver  rconx\n");
-		cprintf(ent,PRINT_HIGH,"--- ----- ---- --------------- --------------------- ---- -----\n");
-		for (a=1;a<=maxclients->value;a++) {
-			if (g_edicts[a].inuse && g_edicts[a].client) {
-				gclient_t *c=g_edicts[a].client;
-				cprintf(ent,PRINT_HIGH,"%3d",a-1);
-				cprintf(ent,PRINT_HIGH," %5d",c->resp.score);
-				cprintf(ent,PRINT_HIGH," %4d",c->ping);
-				cprintf(ent,PRINT_HIGH," %-15s",c->pers.netname);
-				cprintf(ent,PRINT_HIGH," %-21s",c->pers.ip);
-				cprintf(ent,PRINT_HIGH," %.2f",(float)c->pers.version/100.0);
-				cprintf(ent,PRINT_HIGH,"  %s\n",c->pers.rconx[0]?"yes":"");
-			}
+	if (!Q_stricmp(cmd, "status"))
+	{
+		Cmd_Status_f(ent);
+		return;
+	}
+	else if (!Q_stricmp(cmd, "serverinfo"))
+	{
+		cvar_t *v = gi.cvar(TIMENAME, "", 0);
+		cprintf(ent, PRINT_HIGH, "Server info settings:\n");
+		cprintf(ent, PRINT_HIGH, "mapname              %s\n", level.mapname);
+		while (v)
+		{
+			if ((v->flags & CVAR_SERVERINFO) && v->string[0])
+				cprintf(ent, PRINT_HIGH, "%-21s%s\n", v->name, v->string);
+			v = v->next;
 		}
 		return;
-	} else if (!Q_stricmp(cmd,"serverinfo")) {
-		cvar_t *v=dm_realmode;
-		cprintf(ent,PRINT_HIGH,"Server info settings:\n");
-		cprintf(ent,PRINT_HIGH,"mapname              %s\n",level.mapname);
-		while (v) {
-			if (v->flags&CVAR_SERVERINFO)
-				cprintf(ent,PRINT_HIGH,"%-21s%s\n",v->name,v->string);
-			v=v->next;
-		}
-/*		cprintf(ent,PRINT_HIGH,"dm_realmode          %d\n",(int)dm_realmode->value);
-		cprintf(ent,PRINT_HIGH,"gamedate             %s\n",gi.cvar("gamedate","",0)->string);
-		cprintf(ent,PRINT_HIGH,"gamename             %s\n",gi.cvar("gamename","",0)->string);
-		cprintf(ent,PRINT_HIGH,"teamplay             %d\n",(int)teamplay->value);
-		cprintf(ent,PRINT_HIGH,"maxrate              %d\n",(int)maxrate->value);
-		cprintf(ent,PRINT_HIGH,"dm_locational_damage %d\n",(int)dm_locational_damage->value);
-		cprintf(ent,PRINT_HIGH,"maxclients           %d\n",(int)maxclients->value);
-		cprintf(ent,PRINT_HIGH,"protocol             %d\n",(int)(gi.cvar("protocol","",0)->value));
-		cprintf(ent,PRINT_HIGH,"cheats               %d\n",(int)sv_cheats->value);
-		cprintf(ent,PRINT_HIGH,"cashlimit            %d\n",(int)cashlimit->value);
-		cprintf(ent,PRINT_HIGH,"timelimit            %d\n",(int)timelimit->value);
-		cprintf(ent,PRINT_HIGH,"fraglimit            %d\n",(int)fraglimit->value);
-		cprintf(ent,PRINT_HIGH,"version              %s\n",gi.cvar("version","",0)->string);
-		cprintf(ent,PRINT_HIGH,"deathmatch           %d\n",(int)deathmatch->value);
-		cprintf(ent,PRINT_HIGH,"dmflags              %d\n",(int)dmflags->value);
-		cprintf(ent,PRINT_HIGH,"hostname             %s\n",gi.cvar("hostname","",0)->string);
-		cprintf(ent,PRINT_HIGH,"gamedir              %s\n",gi.cvar("gamedir","",0)->string);
-		cprintf(ent,PRINT_HIGH,"game                 %s\n",gi.cvar("game","",0)->string);
-*/		return;
-	} else if (!Q_stricmp(cmd,"dumpuser")) {
+	}
+	else if (!Q_stricmp(cmd, "dumpuser"))
+	{
 		char *name;
-		if (gi.argc()!=3) {
-			cprintf(ent,PRINT_HIGH,"Usage: %s <userid>\n",cmd);
+		if (gi.argc() != 3)
+		{
+			cprintf(ent, PRINT_HIGH, "Usage: %s <userid>\n", cmd);
 			return;
 		}
-		name=gi.argv(2);
-		a=atoi(name);
-		if (!strcmp(name,"0") || (a>0 && a<maxclients->value)) {
+		name = gi.argv(2);
+		a = atoi(name);
+		if (!strcmp(name, "0") || (a > 0 && a < maxclients->value))
+		{
 			a++;
 			if (g_edicts[a].inuse && g_edicts[a].client)
-				dumpuser(ent,g_edicts+a);
+				dumpuser(ent, g_edicts + a);
 			else
-				cprintf(ent,PRINT_HIGH,"Client %s is not active\n",name);
-		} else {
-			for (a=1;a<=maxclients->value;a++)
+				cprintf(ent, PRINT_HIGH, "Client %s is not active\n", name);
+		}
+		else
+		{
+			for (a=1; a<=maxclients->value; a++)
 				if (g_edicts[a].inuse && g_edicts[a].client
-					&& !Q_strcasecmp(g_edicts[a].client->pers.netname,name)) break;
+					&& !Q_strcasecmp(g_edicts[a].client->pers.netname, name)) break;
 			if (a>maxclients->value)
-				cprintf(ent,PRINT_HIGH,"Userid %s is not on the server\n",name);
+				cprintf(ent, PRINT_HIGH, "Userid %s is not on the server\n", name);
 			else
-				dumpuser(ent,g_edicts+a);
+				dumpuser(ent, g_edicts + a);
 		}
 		return;
 	}
-	else if (!Q_stricmp(cmd,"nopassword")) gi.cvar_set("password","");
+	else if (!Q_stricmp(cmd, "nopassword"))
+	{
+		gi.cvar_set("password", "");
+		return;
+	}
     // add reason code here
-	else if (!Q_stricmp(cmd,"kick")) 
-    {
-        checkkick(ent,cmd,"kicked");
-    }
-    else if (!Q_stricmp(cmd,"kickban")) 
-    {
-        checkkick(ent,cmd,"kicked & banned");
-    }
-    else if (!Q_stricmp(cmd,"banip")) 
-    {
-        Cmd_BanDicks_f(ent, 1);
-        return;
-    }
-    else if (!Q_stricmp(cmd,"banname")) 
-    {
-        Cmd_BanDicks_f(ent, 0);
-        return;
-    }
-    else if (!Q_stricmp(cmd,"listdicks"))
-    {
-        Cmd_ListDicks_f(ent);
-        return;
-    }
-    else if (!Q_stricmp(cmd, "mute"))
-    {
-        Cmd_Mute_f(ent, gi.argv(2));
-        return;
-    }
-	else if (gi.argc()==2) {
-		char *val=gi.cvar(cmd,"",0)->string;
-		if (val[0]) {
-			cprintf(ent,PRINT_HIGH,"\"%s\" is \"%s\"\n",cmd,val);
+	else if (!Q_stricmp(cmd, "kick")) 
+	{
+		checkkick(ent, cmd, "kicked");
+	}
+	else if (!Q_stricmp(cmd, "kickban")) 
+	{
+		checkkick(ent, cmd, "kicked & banned");
+	}
+	else if (!Q_stricmp(cmd, "banip")) 
+	{
+		Cmd_BanDicks_f(ent, 1);
+		return;
+	}
+	else if (!Q_stricmp(cmd, "banname")) 
+	{
+		Cmd_BanDicks_f(ent, 0);
+		return;
+	}
+	else if (!Q_stricmp(cmd, "listbans"))
+	{
+		Cmd_ListBans_f(ent);
+		return;
+	}
+	else if (gi.argc() == 2)
+	{
+		char *val=gi.cvar(cmd, "", 0)->string;
+		if (val[0])
+		{
+			cprintf(ent, PRINT_HIGH, "\"%s\" is \"%s\"\n", cmd, val);
 			return;
 		}
 	}
@@ -5102,39 +2983,38 @@ void Cmd_Rcon_login_f (edict_t *ent, char *pass)
 	int a;
 	time_t t;
 
-	if (!num_rconx_pass) {
-		cprintf(ent,PRINT_HIGH,"The rconx options are disabled\n");
+	if (!num_rconx_pass)
+	{
+		cprintf(ent, PRINT_HIGH, "The rconx options are disabled\n");
 		return;
 	}
 
-	if (!pass) {
-		ent->client->pers.rconx[0]=0;
-		cprintf(ent,PRINT_HIGH,"Invalid rconx login\n");
+	for (a=0; a<num_rconx_pass; a++)
+		if (!Q_stricmp(pass, rconx_pass[a].value)) break;
+	if (a == num_rconx_pass)
+	{
+		ent->client->pers.rconx[0] = 0;
+		cprintf(ent, PRINT_HIGH, "Invalid rconx login\n");
 		return;
 	}
-
-//	pass[31]=0;
-	for (a=0;a<num_rconx_pass;a++)
-		if (!Q_stricmp(pass,rconx_pass[a].value)) break;
-	if (a==num_rconx_pass) {
-		ent->client->pers.rconx[0]=0;
-		cprintf(ent,PRINT_HIGH,"Invalid rconx login\n");
-		return;
-	}
-	strcpy(ent->client->pers.rconx,pass);
+	strcpy(ent->client->pers.rconx, pass);
 	time(&t);
-	gi.dprintf("rconx_login (%s:%s) ip: %s time: %s",ent->client->pers.netname,ent->client->pers.rconx,ent->client->pers.ip,ctime(&t));
-	cprintf(ent,PRINT_HIGH,"Successfully logged in\n");
+	gi.dprintf("rconx_login (%s:%s) ip: %s time: %s", ent->client->pers.netname, ent->client->pers.rconx, ent->client->pers.ip, ctime(&t));
+	cprintf(ent, PRINT_HIGH, "Successfully logged in\n");
+}
+
+void Cmd_MOTD_f (edict_t *ent)
+{
+	ent->client->showscores = SCORE_MOTD;
+	ent->client->resp.scoreboard_frame = 0;
 }
 
 //must pass a quoted string (otherwise only first word will be displayed)
 void ErrorMSGBox(edict_t *ent, char *msg)
 {
     char errmsg[256];
-    
-    //errmsg = strcat("error ", msg);
-    sprintf(errmsg, "error %s", msg);
-    gi.WriteByte(13);
+    Com_sprintf(errmsg, sizeof(errmsg), "error %s", msg);
+    gi.WriteByte(svc_stufftext);
     gi.WriteString(errmsg);
     gi.unicast(ent, true);
 }
@@ -5148,122 +3028,92 @@ ClientCommand
 void ClientCommand (edict_t *ent)
 {
 	char	*cmd;
+//gi.dprintf("cmd: %s [%s]\n",gi.argv(0), gi.args());
 
 	if (!ent->client)
 		return;		// not fully in game yet
+
+	ent->client->pers.lastpacket = curtime;
 
 	if (!ent->inuse)
 		return;
 
 	cmd = gi.argv(0);
 
-	if (!strcmp(cmd,lockpvs)) {
-//		char *cmd3=gi.argv(3);
-        char *cmd2=gi.argv(2);
-        cmd=gi.argv(1);
-
-          //debug
-        //cprintf(ent,PRINT_HIGH,"Lockpvs is %s and R_DrawWorld is %s\n", cmd, cmd2);
-
-		if (gi.argc()!=3 || atof(cmd) || atof(cmd2)!=1.0f/* || atof(cmd3)!=1.0*/) {
-				KICKENT(ent,"%s is being kicked for using a see-thru cheat!\n");
-		}
-		return;
-	}
-
-	if (!strcmp(cmd,scaletime)) {
-		char *cmd2=gi.argv(2);
-        cmd=gi.argv(1);
-
-        //debug
-        //cprintf(ent,PRINT_HIGH,"Timescale is %s and Fixedtime is %s\n", cmd, cmd2);
-
-  		if (gi.argc()!=3 || atof(cmd)!=1.0f || atof(cmd2)!=0.0f) {
-				KICKENT(ent,"%s is being kicked for using a speed cheat!\n");
-		}
-		return;
-	}
-
-	if (!strcmp(cmd,locktex)) {
-        char *cmd3=gi.argv(3);
-        char *cmd2=gi.argv(2);
-		cmd=gi.argv(1);
-
-        //debug
-        //cprintf(ent,PRINT_HIGH,"gl_picmip is %s, gl_maxtexsize is %s, gl_polyblend is %s\n", cmd, cmd2, cmd3);
-
-		if (gi.argc()!=4 || atof(cmd)!=0.0f || atof(cmd2)<16.0f) {
-				KICKENT(ent,"%s is being kicked for using a texture cheat!\n");
-		} else {
-			if (atof(cmd3)==0.0f) {
-				if (kick_flamehack->value || (ent->client->pers.spectator==SPECTATING && no_spec->value
-					&& (level.modeset==MATCH || level.modeset==TEAMPLAY || level.modeset==FREEFORALL))) 
+	if (!strncmp(cmd, cmd_check, 7))
+	{
+		switch (cmd[7])
+		{
+			case 'A':
+				if (gi.argc() != 4 || atof(gi.argv(1)) != 0 || atof(gi.argv(2)) < 16)
 				{
- 					if (ent->client->pers.polyblender) { // they have reset gl_polyblend to 0
-						KICKENT(ent,"%s is being kicked for having a flame hack!\n");
-					} else {
-						gi.WriteByte(13);
-						gi.WriteString("gl_polyblend 2\n");
-						gi.unicast(ent, true);
-						ent->client->pers.polyblender = 1;
-					}
+					KICKENT(ent, "%s is being kicked for using a texture cheat!\n");
 				}
-			} else {
-				if (atof(cmd3)==2.0f)
-					ent->client->pers.polyblender = 1;
 				else
-					ent->client->pers.polyblender = 0;
-			}
+				{
+					float v = atof(gi.argv(3));
+					if (v == 0)
+					{
+						if (kick_flamehack->value || (ent->client->pers.spectator == SPECTATING && no_spec->value))
+						{
+							if (ent->client->pers.polyblender) // they have reset gl_polyblend to 0
+							{
+								KICKENT(ent, "%s is being kicked for having a flame hack!\n");
+							}
+							else
+							{
+								gi.WriteByte(svc_stufftext);
+								gi.WriteString("gl_polyblend 2\n");
+								gi.unicast(ent, true);
+								ent->client->pers.polyblender = 1;
+							}
+						}
+					}
+					else if (v == 2)
+						ent->client->pers.polyblender = 1;
+					else
+						ent->client->pers.polyblender = 0;
+				}
+				break;
+
+			case 'B':
+				if (gi.argc() != 3 || atof(gi.argv(1)) != 0 || atof(gi.argv(2)) != 1/* || atof(gi.argv(3)) != 1*/)
+					KICKENT(ent, "%s is being kicked for using a see-thru cheat!\n");
+				break;
+
+			case 'C':
+				{
+					float v = atof(gi.argv(1));
+					if (fabs(fabs(v) - 0.022f) > 0.0001f)
+					{
+						gi.WriteByte(svc_stufftext);
+						if (v < 0)
+							gi.WriteString("m_yaw 0.022\nm_pitch -0.022\n");
+						else
+							gi.WriteString("m_yaw 0.022\nm_pitch 0.022\n");
+						gi.unicast(ent, true);
+					}
+					if (gi.argc() == 3)
+						ent->client->pers.noantilag = !atoi(gi.argv(2));
+				}
+				break;
 		}
 		return;
 	}
 
-    if (!strcmp(cmd,lockfoot)) {
-        char *cmd2=gi.argv(2);
-        cmd=gi.argv(1);
-
-        //debug
-        //cprintf(ent,PRINT_HIGH,"cl_forwardspeed is %s and cl_sidespeed is %s\n", cmd, cmd2);
-
-        if (atof(cmd)<120.0f || atof(cmd2)<120.0f) {
-            gi.WriteByte(13);
-            if (atof(cmd)<120.0f)
-                gi.WriteString("cl_forwardspeed 120\n");
-            else
-                gi.WriteString("cl_sidespeed 120\n");
-            gi.unicast(ent, true);
-        }
-        return;
-    }
-
-
-    if (!strcmp(cmd,lockmouse)) {
-        cmd=gi.argv(1);
-
-      //  cprintf(ent,PRINT_HIGH,"M_PITCH IS: %f\n", fabs(atof(cmd)));
-
-
-        if (fabs(atof(cmd))!=0.022f) {
-            gi.WriteByte(13);
-            if (atof(cmd)<0.0f)
-                gi.WriteString("m_yaw 0.022\nm_pitch -0.022\n");
-            else
-                gi.WriteString("m_yaw 0.022\nm_pitch 0.022\n");
-            gi.unicast(ent, true);
-        }
-        return;
-    }
-
-    if (!Q_stricmp(cmd,"clientlist")) {
+	if (!Q_stricmp(cmd, "clientlist"))
+	{
 		Cmd_Status_f (ent);
-        return;
-    }
+		return;
+	}
 
-	if (Q_stricmp (cmd, "rconx_login") == 0) {
+	if (Q_stricmp (cmd, "rconx_login") == 0)
+	{
 		Cmd_Rcon_login_f (ent,gi.argv(1));
 		return;
 	}
-	if (Q_stricmp (cmd, "rconx") == 0) {
+	if (Q_stricmp (cmd, "rconx") == 0)
+	{
 		Cmd_Rcon_f (ent);
 		return;
 	}
@@ -5275,16 +3125,28 @@ void ClientCommand (edict_t *ent)
 	}
 	if (Q_stricmp (cmd, "say") == 0)
 	{
+		if (level.voteset && !ent->client->resp.vote)
+		{
+			char *arg = gi.args();
+			if (Q_stricmp (arg, "\"yes\"") == 0)
+			{
+				Cmd_Yes_f (ent);
+				return;
+			}
+			else if (Q_stricmp (arg, "\"no\"") == 0)
+			{
+				Cmd_No_f (ent);
+				return;
+			}
+		}
 		Cmd_Say_f (ent, false, false);
 		return;
 	}
-
 	if (Q_stricmp (cmd, "say_team") == 0)
 	{
 		Cmd_Say_f (ent, true, false);
 		return;
 	}
-
 	if (Q_stricmp (cmd, "score") == 0)
 	{
 		Cmd_Score_f (ent);
@@ -5307,43 +3169,10 @@ void ClientCommand (edict_t *ent)
 		return;
 	}
 
-
+/*
 	if (level.intermissiontime)
 		return;
-
-	// RAFAEL  
-	if (level.cut_scene_time)
-		return;
-     
-	else if (level.pawn_time)
-	{
-	
-		if (Q_stricmp (cmd, "invuse") == 0)
-			PawnBuy (ent);
-
-		else if (Q_stricmp (cmd, "leftarrow") == 0)
-			PawnLeft (ent);
-		else if (Q_stricmp (cmd, "rightarrow") == 0)
-			PawnRight (ent);
-		// JOSEPH 6-FEB-99
-		else if (Q_stricmp (cmd, "uparrow") == 0)
-			PawnPrev (ent);
-		else if (Q_stricmp (cmd, "downarrow") == 0)
-			PawnNext (ent);		
-		// END JOSEPH
-		else if (Q_stricmp (cmd, "key1") == 0)
-			PawnAgree (ent);
-		else if (Q_stricmp (cmd, "key3") == 0)
-			PawnDisagree (ent);
-
-		else if (Q_stricmp (cmd, "inven") == 0)
-			Cmd_Inven_f (ent);
-		// not sure if we are going to have a sell key
-		// else if (Q_stricmp (cmd, "invnextw") == 0)
-		//	PawnSell (ent);
-		return;
-	}
-
+*/
 	// JOSEPH 6-FEB-99
 	if (Q_stricmp (cmd, "leftarrow") == 0)
 		;
@@ -5358,7 +3187,6 @@ void ClientCommand (edict_t *ent)
 	// END JOSEPH
 	else if ((Q_stricmp (cmd, "drop") == 0) && (Q_stricmp (gi.argv (1), "cash") == 0))
 		Cmd_DropCash_f (ent);
-
 	else if (Q_stricmp (cmd, "drop") == 0)
 		Cmd_Drop_f (ent);
 	else if (Q_stricmp (cmd, "give") == 0)
@@ -5412,23 +3240,6 @@ void ClientCommand (edict_t *ent)
 		Cmd_Kill_f (ent);
 	else if (Q_stricmp (cmd, "putaway") == 0)
 		Cmd_PutAway_f (ent);
-	// BEGIN:	Xatrix/Ridah/Navigator/23-mar-1998
-	else if (Q_stricmp (cmd, "nav_debug_dest") == 0)
-		Cmd_NavDebugDest_f (ent);
-	else if (Q_stricmp (cmd, "nav_debug_showpath") == 0)
-		Cmd_NavDebugShowPath_f (ent);
-	else if (Q_stricmp (cmd, "nav_showpath") == 0)
-		Cmd_NavDebugShowPath_f (ent);
-	else if (Q_stricmp (cmd, "nav_save") == 0)
-		NAV_WriteActiveNodes ( ent->active_node_data, level.mapname );
-	else if (Q_stricmp (cmd, "nav_clear") == 0)
-		Cmd_NavClear_f ( ent );
-	else if (Q_stricmp (cmd, "nav_rebuild") == 0)
-		NAV_RebuildRoutes( level.node_data );
-// END:		Xatrix/Ridah/Navigator/23-mar-1998
-
-//	else if (Q_stricmp (cmd, "spawn") == 0)
-//		Cmd_Spawn_f (ent);
 
 	// Ridah, new 3 key command system
 	else if (strstr (cmd, "key") == cmd)
@@ -5438,51 +3249,17 @@ void ClientCommand (edict_t *ent)
 	else if (Q_stricmp (cmd, "togglecam") == 0)
 		Cmd_ToggleCam_f (ent);
 
-	// Ridah, Lightpaint
-	else if (Q_stricmp (cmd, "burn_save") == 0)
-		Cmd_BurnSave_f (ent);
-
 	// Ridah, Vehicles
 	else if (Q_stricmp (cmd, "gear_up") == 0)
 		Cmd_GearUp_f (ent);
 	else if (Q_stricmp (cmd, "gear_down") == 0)
 		Cmd_GearDown_f (ent);
 
-//	else if (Q_stricmp (cmd, "gettexture") == 0)
-//		Cmd_GetTexture_f (ent);
-
-	// JOSEPH 23-MAR-99
-	else if (Q_stricmp (cmd, "hideprops") == 0)
-		Cmd_SetProps_f (0);
-	else if (Q_stricmp (cmd, "showprops") == 0)
-		Cmd_SetProps_f (1);
-	else if (Q_stricmp (cmd, "extracrispy") == 0)
-		Cmd_FryAll_f (ent);
-	// END JOSEPH
-
-//	else if (Q_stricmp (cmd, "gibtest") == 0)
-//		Cmd_GibTest_f (ent);
-
 	// Teamplay commands
 	else if ((Q_stricmp (cmd, "join") == 0) || (Q_stricmp (cmd, "team") == 0))
 		Cmd_Join_f (ent, gi.argv (1));
 	else if ((Q_stricmp (cmd, "spec") == 0) || (Q_stricmp (cmd, "spectator") == 0))
 		Cmd_Spec_f (ent);
-
-	// voting system
-//	else if (Q_stricmp (cmd, "vote") == 0)
-//		Cmd_Vote_f (ent);
-//	else if ((Q_stricmp (cmd, "yes") == 0) || (Q_stricmp (cmd, "no") == 0))
-//		Cmd_Response_f (ent);
-		
-#if 0	// turn this off once we have the tables (not used by actual game code)
-	// Ridah, new anorm calculations
-	else if (Q_stricmp (cmd, "calc_anorms") == 0)
-		Cmd_Anorms_f ();
-	else if (Q_stricmp (cmd, "calc_adots") == 0)
-		Cmd_Adots_f ();
-	// done.
-#endif
 
 // Papa 10.6.99 Tourney Commands
 	
@@ -5525,23 +3302,23 @@ void ClientCommand (edict_t *ent)
 
 	else if (Q_stricmp (cmd, "settimelimit") == 0)
 		Cmd_SetTimeLimit_f (ent, gi.argv (1));
-    else if (Q_stricmp (cmd, "setidletime") == 0)
-        Cmd_SetClientIdle_f (ent, gi.argv (1));
+	else if (Q_stricmp (cmd, "setidletime") == 0)
+		Cmd_SetClientIdle_f (ent, gi.argv (1));
 	else if (Q_stricmp (cmd, "setfraglimit") == 0)
 		Cmd_SetFragLimit_f (ent, gi.argv (1));
 	else if (Q_stricmp (cmd, "setcashlimit") == 0)
 		Cmd_SetCashLimit_f (ent, gi.argv (1));
-	else if (Q_stricmp (cmd, "team1name") == 0) 
-		Cmd_SetTeamName_f(ent,1,gi.argv(1)); 
-	else if (Q_stricmp (cmd, "team2name") == 0) 
-		Cmd_SetTeamName_f(ent,2,gi.argv(1)); 
+	else if (Q_stricmp (cmd, "setbonus") == 0)
+		Cmd_SetBonus_f (ent, gi.argv (1));
 
-    // mute
-    else if (Q_stricmp (cmd, "mute") == 0) 
+	else if (Q_stricmp (cmd, "mute") == 0) 
 		Cmd_Mute_f(ent,gi.argv(1)); 
 
-    else if (Q_stricmp (cmd, "listdicks") == 0) 
-        Cmd_ListDicks_f(ent);
+	else if (Q_stricmp (cmd, "listbans") == 0) 
+		Cmd_ListBans_f(ent);
+
+	else if (Q_stricmp (cmd, "motd") == 0)
+		Cmd_MOTD_f(ent);
 
 	//taunt commands
 	else if (Q_stricmp (cmd, "kingpin") == 0) 
@@ -5578,40 +3355,44 @@ void ClientCommand (edict_t *ent)
 		Cmd_Key_f(ent,BETH); 
 	else if (Q_stricmp (cmd, "curselist") == 0) 
 		Cmd_CurseList_f(ent); 
-
 	else if (strstr (cmd, "curse") == cmd)
 		Cmd_Key_f (ent,0);
 	else if (strstr (cmd, "taunt") == cmd)
 		Cmd_Key_f (ent,0);
-    else if (Q_stricmp (cmd, "toggle_asc") == 0) 
-        Cmd_Toggle_ASC_f(ent);
-    else if (Q_stricmp (cmd, "toggle_spec") == 0) 
-        Cmd_ToggleSpec_f(ent);
-    else if (Q_stricmp (cmd, "toggle_shadows") == 0) 
-        Cmd_ToggleShadows_f(ent);
-
-
 	//end -taunts tical
+
+	else if (Q_stricmp (cmd, "toggle_asc") == 0) 
+		Cmd_Toggle_ASC_f(ent);
+	else if (Q_stricmp (cmd, "toggle_bunny") == 0) 
+		Cmd_Toggle_Bunny_f(ent);
+	else if (Q_stricmp (cmd, "toggle_spec") == 0) 
+		Cmd_Toggle_Spec_f(ent);
+	else if (Q_stricmp (cmd, "toggle_shadows") == 0) 
+		Cmd_Toggle_Shadows_f(ent);
+	else if (Q_stricmp (cmd, "toggle_zoom") == 0) 
+		Cmd_Toggle_Zoom_f(ent);
+	else if (Q_stricmp (cmd, "antilag") == 0) 
+		Cmd_AntiLag_f(ent, gi.argv(1));
 
 	else if (teamplay->value)
 	{
 		if (Q_stricmp (cmd, "matchsetup") == 0)
 			Cmd_MatchSetup_f (ent);
-		else if (Q_stricmp (cmd, "publicsetup") == 0)
-			Cmd_PublicSetup_f (ent);
 		else if (Q_stricmp (cmd, "matchstart") == 0)
 			Cmd_MatchStart_f (ent);
 		else if (Q_stricmp (cmd, "matchend") == 0)
 			Cmd_MatchEnd_f (ent);
 		else if (Q_stricmp (cmd, "matchscore") == 0)
 			Cmd_MatchScore_f (ent);
-       
+		else if (Q_stricmp (cmd, "team1name") == 0) 
+			Cmd_SetTeamName_f(ent, 1, gi.argv(1)); 
+		else if (Q_stricmp (cmd, "team2name") == 0) 
+			Cmd_SetTeamName_f(ent, 2, gi.argv(1)); 
+
 		else	// anything that doesn't match a command will be a chat
 		    Cmd_Say_f (ent, false, true);
-			//cprintf(ent,PRINT_HIGH,"Unknown command!\n");
 	}
 
 	else	// anything that doesn't match a command will be a chat
-	    Cmd_Say_f (ent, false, true);
-		//cprintf(ent,PRINT_HIGH,"Unknown command!\n");
+		Cmd_Say_f (ent, false, true);
 }

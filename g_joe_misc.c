@@ -121,7 +121,7 @@ void SP_black_box (edict_t *self)
 
 void SP_props_hydrant (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -151,7 +151,7 @@ void SP_props_antenna1a (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -191,7 +191,7 @@ void SP_props_antenna2a (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -231,7 +231,7 @@ void SP_props_antenna3a (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -271,7 +271,7 @@ void SP_props_antenna1b (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -311,7 +311,7 @@ void SP_props_antenna2b (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -351,7 +351,7 @@ void SP_props_antenna3b (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -391,7 +391,7 @@ void SP_props_antenna1c (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -431,7 +431,7 @@ void SP_props_antenna2c (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -471,7 +471,7 @@ void SP_props_antenna3c (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -525,7 +525,7 @@ void radio_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage
 
 void SP_props_fan (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -572,7 +572,7 @@ void think_aircon (edict_t *self)
 
 void SP_props_aircon (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -602,7 +602,7 @@ model="models\props\phone\tris.md2"
 
 void SP_props_phone (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -637,7 +637,7 @@ void SP_props_tablesetA (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -780,7 +780,7 @@ void radio_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage
 
 void SP_props_radio (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -820,7 +820,7 @@ fxdensity - total number of drops in the sky 1 - 1000 (default 400)
 firetype - type of drops, 0 = rain 1 = drip
 */
 
-void think_new_first_raincloud (edict_t *self)
+void think_new_first_raincloud_client (edict_t *self, edict_t *clent)
 {
 	vec3_t	neworigin, minmaxsize;
 	int		effectsizex, effectsizey, effectsizez;
@@ -837,38 +837,30 @@ void think_new_first_raincloud (edict_t *self)
 	neworigin[1] += (effectsizey >> 1);
 	neworigin[2] += (effectsizez >> 1);
 
-	// Adjust rain density
-	if (!self->fxdensity)
-		self->fxdensity = 400;		 
-	else if (self->fxdensity > 1000)
-		self->fxdensity = 1000;	
-
 	gi.WriteByte (svc_temp_entity);
 	gi.WriteByte (TE_RAIN);
 	gi.WritePosition (neworigin);
 	gi.WriteShort (self->fxdensity);
 	gi.WriteShort (effectsizex);
 	gi.WriteShort (effectsizey);
-	gi.WriteShort (effectsizez);	
+	gi.WriteShort (effectsizez);
 	gi.WriteShort (self->firetype);
-	gi.multicast (neworigin, MULTICAST_ALL_R);	
+	gi.unicast (clent, true);
 }
 
 void SP_elements_raincloud (edict_t *self)
 {
-	if (deathmatch->value)
-	{	// auto-remove for deathmatch
-		G_FreeEdict (self);
-		return;
-	}
-	
 	self->solid = SOLID_BSP;
 	self->movetype = MOVETYPE_NONE;
 	gi.setmodel (self, self->model);
 	gi.linkentity (self);
-	self->nextthink = level.time + (10 * FRAMETIME);
-	self->think = think_new_first_raincloud;
 	self->svflags |= SVF_NOCLIENT;
+
+	// Adjust rain density
+	if (!self->fxdensity)
+		self->fxdensity = 400;
+	else if (self->fxdensity > 1000)
+		self->fxdensity = 1000;
 }
 							
 /*QUAKED elements_snowcloud (0 .5 .8) ?
@@ -881,7 +873,7 @@ cloud can be any recatangle size
 fxdensity - total number of flakes in the sky 1 - 1000 (default 400) 
 */
 
-void think_new_first_snowcloud (edict_t *self)
+void think_new_first_snowcloud_client (edict_t *self, edict_t *clent)
 {
 	vec3_t	neworigin, minmaxsize;
 	int		effectsizex, effectsizey, effectsizez;
@@ -898,37 +890,29 @@ void think_new_first_snowcloud (edict_t *self)
 	neworigin[1] += (effectsizey >> 1);
 	neworigin[2] += (effectsizez >> 1);
 
-	// Adjust snow density
-	if (!self->fxdensity)
-		self->fxdensity = 400;		 
-	else if (self->fxdensity > 1000)
-		self->fxdensity = 1000;	
-	
 	gi.WriteByte (svc_temp_entity);
 	gi.WriteByte (TE_SNOW);
 	gi.WritePosition (neworigin);
 	gi.WriteShort (self->fxdensity);
 	gi.WriteShort (effectsizex);
 	gi.WriteShort (effectsizey);
-	gi.WriteShort (effectsizez);	
-	gi.multicast (neworigin, MULTICAST_ALL_R);	
+	gi.WriteShort (effectsizez);
+	gi.unicast (clent, true);
 }
 
 void SP_elements_snowcloud (edict_t *self)
 {
-	if (deathmatch->value)
-	{	// auto-remove for deathmatch
-		G_FreeEdict (self);
-		return;
-	}
-	
 	self->solid = SOLID_BSP;
 	self->movetype = MOVETYPE_NONE;
 	gi.setmodel (self, self->model);
 	gi.linkentity (self);
-	self->nextthink = level.time + (10 * FRAMETIME);
-	self->think = think_new_first_snowcloud;
 	self->svflags |= SVF_NOCLIENT;
+
+	// Adjust snow density
+	if (!self->fxdensity)
+		self->fxdensity = 400;
+	else if (self->fxdensity > 1000)
+		self->fxdensity = 1000;
 }
 
 #define NON_MOVEABLE   2
@@ -1159,6 +1143,9 @@ void crate_stuff (edict_t *self)
 	org[0] += self->size[0];
 	org[1] += self->size[1];
 	ThrowDebris_stuff (self, "models/props/stuff/piece2.md2", spd, org);
+
+	// limit the debris in deathmatch to avoid overflows
+	if (deathmatch_value) return;
 
 	// a bunch of little chunks
 	spd = 10 * self->dmg / 200;
@@ -1421,7 +1408,7 @@ void SP_props_crate_bust_32 (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -1671,7 +1658,7 @@ void SP_props_crate_bust_48 (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -1869,7 +1856,7 @@ void SP_props_crate_bust_64 (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2089,7 +2076,7 @@ void ammocrate_bust_die (edict_t *self, edict_t *inflictor, edict_t *attacker, i
 
 void SP_props_ammocrate_bust (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2148,7 +2135,7 @@ void trashcanA_delay (edict_t *self, edict_t *inflictor, edict_t *attacker, int 
 
 void SP_props_trashcanA (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2263,7 +2250,7 @@ void trashcan_fall_touch (edict_t *self, edict_t *other, cplane_t *plane, csurfa
 
 void SP_props_trashcan_fall (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2590,7 +2577,7 @@ void SP_cast_buma (edict_t *self)
 {
 	int i;
 
-    if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{ // auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2635,7 +2622,7 @@ void SP_cast_bumb (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{ // auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2692,7 +2679,7 @@ void SP_props_chair (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2785,7 +2772,7 @@ void SP_props2_chair_push (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2897,7 +2884,7 @@ void exting_delay (edict_t *self, edict_t *inflictor, edict_t *attacker, int dam
 // JOSEPH 3-FEB-99
 void SP_props_extinguisherA (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2927,7 +2914,7 @@ void SP_props_extinguisherA (edict_t *self)
 
 void SP_props_extinguisherB (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -2970,7 +2957,7 @@ void SP_props_motorcycle (edict_t *self)
 	int i;
 	//edict_t	*box = NULL;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3026,7 +3013,7 @@ void SP_props_motorcycle_run (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3133,7 +3120,7 @@ void SP_props_motorcycle_runaway (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3191,7 +3178,7 @@ void SP_props_shelf (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3247,7 +3234,7 @@ A mattress
 
 void SP_props_mattressA (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3277,7 +3264,7 @@ model="models/props/mattress/matt2.md2"
 
 void SP_props_mattressB (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3307,7 +3294,7 @@ model="models/props/mattress/matt3.md2"
 
 void SP_props_mattressC (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3339,7 +3326,7 @@ model="models\props\tv\tv.md2"
 
 void SP_props_tv (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3415,7 +3402,7 @@ model="models\props\trash\tris.md2"
 
 void SP_props_trash (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3507,7 +3494,7 @@ void SP_props_wall_fall (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3549,7 +3536,7 @@ model="models\props\trashbottle\tris.md2"
 
 void SP_props_trashbottle (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3577,7 +3564,7 @@ model="models\props\trashpaper\tris.md2"
 
 void SP_props_trashpaper (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3605,7 +3592,7 @@ model="models\props\trashwall\tris.md2"
 
 void SP_props_trashwall (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3633,7 +3620,7 @@ model="models\props\trashcorner\tris.md2"
 
 void SP_props_trashcorner (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3661,7 +3648,7 @@ model="models\props\trashbottle_vert\tris.md2"
 
 void SP_props_trashbottle_vert (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3712,7 +3699,7 @@ void SP_props_shelf_fall (edict_t *self)
 	int i;
 	edict_t	*newent = NULL;	
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -3875,7 +3862,7 @@ void SP_props_shelfB_fall (edict_t *self)
 	edict_t	*newent = NULL;	
 	edict_t	*newent2 = NULL;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -4075,14 +4062,6 @@ void rat_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage, 
 	gi.WriteByte ( 10 );	// random velocity scale
 	gi.multicast (realorigin, MULTICAST_PVS);
 
-	gi.WriteByte (svc_temp_entity);
-	gi.WriteByte (TE_SPLASH);
-	gi.WriteByte (50);
-	gi.WritePosition (realorigin);
-	gi.WriteDir (self->movedir);
-	gi.WriteByte (6);
-	gi.multicast (realorigin, MULTICAST_PVS);
-
 	// If this rat was spawned - tell spawner to make a new one
 	if (self->targetname)
 	{
@@ -4161,10 +4140,6 @@ void rat_go (edict_t *self)
 {
 	if (self->option)
 	{	
-		cvar_t	*props; 
-		
-		props = gi.cvar("props", "1", CVAR_ARCHIVE);
-		
 		if (!props->value)
 		{
 			self->nextthink = level.time + (FRAMETIME * 10);
@@ -4263,7 +4238,7 @@ void SP_props_rat (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && props->value<2)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -4339,7 +4314,7 @@ void SP_props_rat_trigger (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && props->value<2)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -4421,11 +4396,7 @@ void rat_spawn_think (edict_t *self)
 			
 		if (self->option)
 		{	
-			cvar_t	*props; 
-			
-			props = gi.cvar("props", "1", CVAR_ARCHIVE);
-			
-			if (!props->value)
+			if (props->value<2)
 			{
 				self->nextthink = level.time + FRAMETIME * 50;
 				return;
@@ -4503,7 +4474,7 @@ void rat_spawn_first_think (edict_t *self)
 
 void SP_props_rat_spawner (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && props->value<2)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -4542,7 +4513,7 @@ void SP_props_rat_spawner (edict_t *self)
 
 void SP_props_rat_spawner_node (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && props->value<2)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -4577,7 +4548,7 @@ void blimp_use  (edict_t *self, edict_t *other, edict_t *activator)
 
 void SP_props_blimp (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -4722,7 +4693,7 @@ void think_roof_vent (edict_t *self)
 
 void SP_props_roof_vent (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -4793,7 +4764,7 @@ void SP_props2_truck_die (edict_t *self)
 	int i;
 	edict_t	*newent = NULL;	
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -4913,7 +4884,7 @@ model="models\props\vending_mach\tris.md2"
 
 void SP_props_cola_machine (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -4952,7 +4923,7 @@ model="models\props\cigmachine\tris.md2"
 
 void SP_props_cig_machine (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5019,7 +4990,7 @@ void SP_props2_barrels_fallA (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5094,7 +5065,7 @@ void SP_props2_barrels_fallB (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5141,7 +5112,7 @@ model="models\props\clubcouch\"
 
 void SP_props2_clubcouch (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5177,7 +5148,7 @@ model="models\props\clubchair\"
 
 void SP_props2_clubchair (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5223,7 +5194,7 @@ model="models\props\vase1\"
 
 void SP_props2_vaseA (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5256,7 +5227,7 @@ model="models\props\vase2\"
 
 void SP_props2_vaseB (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5289,7 +5260,7 @@ model="models\props\confchair\"
 
 void SP_props2_chair_conf (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5362,7 +5333,7 @@ void SP_props2_shelf_metal_A_fall (edict_t *self)
 	edict_t	*newent = NULL;	
 	edict_t	*newent2 = NULL;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5570,7 +5541,7 @@ void SP_props2_shelf_metal_B_fall (edict_t *self)
 	edict_t	*newent = NULL;	
 	edict_t	*newent2 = NULL;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5756,34 +5727,7 @@ model="models\props\deadguy\body.mdx;models\props\deadguy\head.mdx;models\props\
 
 void body_gib (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage, vec3_t point, int mdx_part, int mdx_subobject)
 {
-	int i;
-	vec3_t realorigin;
-
-	VectorCopy(self->s.origin, realorigin);
-	realorigin[2] += 8;
-
-	for (i = 0; i < 20; i++)
-	{
-		realorigin[0] = (self->s.origin[0] + ((rand()&63) - 32));
-		realorigin[1] = (self->s.origin[1] + ((rand()&63) - 31));			
-		gi.WriteByte (svc_temp_entity);
-		gi.WriteByte (TE_GIBS);
-		gi.WritePosition (realorigin);
-		gi.WriteDir (vec3_origin);
-		gi.WriteByte ( 2 );	// number of gibs
-		gi.WriteByte ( 0 );	// scale of direction to add to velocity
-		gi.WriteByte ( 0 );	// random offset scale
-		gi.WriteByte ( 10 );	// random velocity scale
-		gi.multicast (realorigin, MULTICAST_PVS);
-
-		gi.WriteByte (svc_temp_entity);
-		gi.WriteByte (TE_SPLASH);
-		gi.WriteByte (4);
-		gi.WritePosition (realorigin);
-		gi.WriteDir (self->movedir);
-		gi.WriteByte (6);
-		gi.multicast (realorigin, MULTICAST_PVS);
-	}
+	GibEntity(self, inflictor, damage);
 
 	if (self->item)
 	{
@@ -5798,7 +5742,7 @@ void SP_props2_deadguy (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5890,7 +5834,7 @@ void SP_props2_deadguy_underwater (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -5970,7 +5914,7 @@ void SP_props2_deadgal_headless (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6055,7 +5999,7 @@ void think_flag (edict_t *self)
 
 void SP_props2_flag (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6204,11 +6148,7 @@ void fish_go (edict_t *self)
 {
 	if (self->option)
 	{	
-		cvar_t	*props; 
-		
-		props = gi.cvar("props", "1", CVAR_ARCHIVE);
-		
-		if (!props->value)
+		if (props->value<2)
 		{
 			self->nextthink = level.time + (FRAMETIME * 10);
 			return;
@@ -6317,7 +6257,7 @@ void SP_props2_fish (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && props->value<2)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6393,7 +6333,7 @@ void SP_props2_fish_trigger (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && props->value<2)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6477,10 +6417,6 @@ void fish_spawn_think (edict_t *self)
 			
 		if (self->option)
 		{	
-			cvar_t	*props; 
-			
-			props = gi.cvar("props", "1", CVAR_ARCHIVE);
-			
 			if (!props->value)
 			{
 				self->nextthink = level.time + FRAMETIME * 50;
@@ -6557,7 +6493,7 @@ void fish_spawn_first_think (edict_t *self)
 
 void SP_props2_fish_spawner (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && props->value<2)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6596,7 +6532,7 @@ void SP_props2_fish_spawner (edict_t *self)
 
 void SP_props2_fish_spawner_node (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && props->value<2)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6620,7 +6556,7 @@ model="models\props\fish\tris.md2"
 
 void SP_props2_wall_fish (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6680,7 +6616,7 @@ void SP_props2_barrels_fall_ST (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6748,7 +6684,7 @@ void SP_props2_sign (edict_t *self)
 {
 	int i;
 
-    if (deathmatch->value)
+    if (deathmatch_value && !props->value)
 	{ // auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6824,7 +6760,7 @@ void SP_props2_lighthouse_beam (edict_t *self)
 {
 	int i;
 
-    if (deathmatch->value)
+    if (deathmatch_value && !props->value)
 	{ // auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6895,7 +6831,7 @@ void SP_props2_boat (edict_t *self)
 	int i;
 	edict_t *newent = NULL;
 
-    if (deathmatch->value)
+    if (deathmatch_value && !props->value)
 	{ // auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -6973,7 +6909,7 @@ void SP_props2_buoy (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7020,7 +6956,7 @@ void SP_props2_buoy_side (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7080,7 +7016,7 @@ void SP_props2_buoy_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7127,7 +7063,7 @@ model="models\props\gargoyle\"
 
 void SP_props2_gargoyle (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7171,7 +7107,7 @@ void think_clothesline (edict_t *self)
 
 void SP_props2_clothesline (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7206,7 +7142,7 @@ model="models\props\plants\plant_xl.md2"
 
 void SP_props2_plant_XL (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7240,7 +7176,7 @@ model="models\props\plants\plant_sm.md2"
 
 void SP_props2_plant_SM (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7274,7 +7210,7 @@ model="models\props\lunch_set\tris.md2"
 
 void SP_props2_lunch (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7302,7 +7238,7 @@ model="models\props\ashtray_set\tris.md2"
 
 void SP_props2_ashtray (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7330,7 +7266,7 @@ model="models\props\boatphone\tris.md2"
 
 void SP_props2_boatphone (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7358,7 +7294,7 @@ model="models\props\bush\tris.md2"
 
 void SP_props2_plant_bush (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7415,7 +7351,7 @@ void SP_props2_boat_animate (edict_t *self)
 	int i;
 	edict_t *newent = NULL;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7508,7 +7444,7 @@ void SP_props2_helicopter_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7603,7 +7539,7 @@ void SP_props2_car_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7681,7 +7617,7 @@ model="models\props\car\car_up.md2"
 
 void SP_props2_car_topup (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7720,7 +7656,7 @@ model="models\props\car\car_td.md2"
 
 void SP_props2_car_topdown (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7757,7 +7693,7 @@ model="models\props\fern\tris.md2"
 
 void SP_props2_plant_fern (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -7831,7 +7767,7 @@ void SP_props2_pinball_machine (edict_t *self)
 	int i;
 	edict_t *newent = NULL;
 
-    if (deathmatch->value)
+    if (deathmatch_value && !props->value)
 	{ // auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8072,7 +8008,7 @@ void SP_props2_barrels_PV_A (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8131,7 +8067,7 @@ void SP_props2_barrels_PV_B (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8190,7 +8126,7 @@ void SP_props2_barrels_PV_C (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8249,7 +8185,7 @@ void SP_props2_barrels_PV_D (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8302,7 +8238,7 @@ void SP_props2_barrels_PV_E (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8355,7 +8291,7 @@ void SP_props2_barrels_PV_F (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8433,7 +8369,7 @@ void SP_props2_air_train (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8520,7 +8456,7 @@ void SP_props3_dead_louie (edict_t *self)
 {
 	int i;
 
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8610,7 +8546,7 @@ void SP_props3_cut_boss_player_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8682,7 +8618,7 @@ void SP_props3_deco_fixture (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8744,7 +8680,7 @@ void SP_props3_cut_boss_chick_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -8847,7 +8783,7 @@ void SP_props3_cut_train_run_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9016,7 +8952,7 @@ void SP_props3_cut_A_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9063,7 +8999,7 @@ void SP_props3_cut_B_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9110,7 +9046,7 @@ void SP_props3_cut_C_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9157,7 +9093,7 @@ void SP_props3_cut_D_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9227,7 +9163,7 @@ void SP_props3_cash_counter_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9280,7 +9216,7 @@ void SP_props3_decanter (edict_t *self)
 	int i;
 	edict_t *newent = NULL;
 
-    if (deathmatch->value)
+    if (deathmatch_value && !props->value)
 	{ // auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9353,7 +9289,7 @@ void SP_props3_whiskey_glass (edict_t *self)
 	int i;
 	edict_t *newent = NULL;
 
-    if (deathmatch->value)
+    if (deathmatch_value && !props->value)
 	{ // auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9445,7 +9381,7 @@ void SP_props3_barrels_fall_nikki_A (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9512,7 +9448,7 @@ void SP_props3_barrels_fall_nikki_B (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9584,7 +9520,7 @@ void SP_props3_cut_run_to_car_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9663,7 +9599,7 @@ void SP_props3_cut_final_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9723,7 +9659,7 @@ void SP_props3_cash (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9785,7 +9721,7 @@ void SP_props3_cut_truck_driver (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;
@@ -9870,7 +9806,7 @@ void SP_props3_cut_pinball_guy_animate (edict_t *self)
 {
 	int i;
 	
-	if (deathmatch->value)
+	if (deathmatch_value && !props->value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (self);
 		return;

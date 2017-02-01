@@ -1,6 +1,4 @@
 #include "g_local.h"
-//#include "stdlog.h"	// Standard Logging
-//#include "gslog.h"	// Standard Logging
 
 typedef struct
 {
@@ -372,7 +370,7 @@ spawn_t	spawns[] = {
 	{"info_player_deathmatch", SP_info_player_deathmatch},
 	{"info_player_coop", SP_info_player_coop},
 	{"info_player_intermission", SP_info_player_intermission},
-    {"info_box_intermission", SP_info_box_intermission},
+	{"info_box_intermission", SP_info_box_intermission},
 
 	{"func_plat", SP_func_plat},
 	{"func_button", SP_func_button},
@@ -411,8 +409,8 @@ spawn_t	spawns[] = {
 	{"target_speaker", SP_target_speaker},
 	{"target_explosion", SP_target_explosion},
 	{"target_changelevel", SP_target_changelevel},
-	{"target_secret", SP_target_secret},
-	{"target_goal", SP_target_goal},
+//	{"target_secret", SP_target_secret},
+//	{"target_goal", SP_target_goal},
 	{"target_splash", SP_target_splash},
 	{"target_spawner", SP_target_spawner},
 	{"target_blaster", SP_target_blaster},
@@ -451,7 +449,7 @@ spawn_t	spawns[] = {
 	{"misc_teleporter", SP_misc_teleporter},
 	{"misc_teleporter_dest", SP_misc_teleporter_dest},
 	{"misc_amb4", SP_misc_amb4},
-
+/*
 // Ridah, character spawns
 	{"cast_punk", SP_cast_punk},
 	{"cast_thug", SP_cast_thug},
@@ -490,7 +488,7 @@ spawn_t	spawns[] = {
 	{"misc_fidelA", SP_misc_fidelA},
 	{"misc_car", SP_misc_car},
 // Ridah done.
-
+*/
 // Rafael's entities
 	{"misc_smoke", SP_misc_smoke},
 	{"elps", SP_elps},
@@ -501,7 +499,7 @@ spawn_t	spawns[] = {
 	{"trigger_hurt_electric",SP_trigger_hurt_electric},
 
 	// {"immortal_hostility",SP_immortal_hostility},
-
+/*
 	{"pawn_o_matic", SP_pawn_o_matic},
 
 	{"ai_safespot", SP_ai_safespot},
@@ -536,7 +534,7 @@ spawn_t	spawns[] = {
 	{"misc_corky_fidel_mdx_tga", SP_misc_corky_fidel_mdx_tga},
 
 	{"misc_cut_scene", SP_misc_cut_scene},
-
+*/
 // Joseph's entities
 // JOSEPH 4-MAY-99
 	{"light_fire_esm",SP_light_fire_esm},
@@ -554,7 +552,7 @@ spawn_t	spawns[] = {
 	{"props_trashcanA", SP_props_trashcanA},
 	{"props_trashcan_fall", SP_props_trashcan_fall},
 	{"black_box", SP_black_box},
-    {"props_hydrant", SP_props_hydrant},
+	{"props_hydrant", SP_props_hydrant},
     {"props_antenna1a", SP_props_antenna1a},
     {"props_antenna1b", SP_props_antenna1b},
     {"props_antenna1c", SP_props_antenna1c},
@@ -573,8 +571,8 @@ spawn_t	spawns[] = {
 	{"cast_bumb", SP_cast_bumb},
 	{"elements_raincloud", SP_elements_raincloud},
 	{"elements_snowcloud", SP_elements_snowcloud},
-    {"misc_cutscene_trigger", SP_misc_cutscene_trigger},
-    {"misc_cutscene_camera", SP_misc_cutscene_camera},
+//    {"misc_cutscene_trigger", SP_misc_cutscene_trigger},
+//    {"misc_cutscene_camera", SP_misc_cutscene_camera},
 	//{"props_crate", SP_props_crate},
 	//{"props_crate_32", SP_props_crate_32},
 	//{"props_crate_48", SP_props_crate_48},
@@ -589,7 +587,7 @@ spawn_t	spawns[] = {
     {"props_mattressA", SP_props_mattressA},
     {"props_mattressB", SP_props_mattressB},
     {"props_mattressC", SP_props_mattressC},
-	{"trigger_motorcycle", SP_trigger_motorcycle},
+//	{"trigger_motorcycle", SP_trigger_motorcycle},
     {"props_tv", SP_props_tv},
     {"props_steam_machine", SP_props_steam_machine},
 	{"light_bulb", SP_light_bulb},
@@ -601,7 +599,7 @@ spawn_t	spawns[] = {
     {"props_trashcorner", SP_props_trashcorner},
     {"props_trashbottle_vert", SP_props_trashbottle_vert},
     {"props_blimp", SP_props_blimp},
-    {"misc_use_cutscene", SP_misc_use_cutscene},
+//    {"misc_use_cutscene", SP_misc_use_cutscene},
     {"props_motorcycle_runaway", SP_props_motorcycle_runaway},
     {"trigger_hurt_fire", SP_trigger_hurt_fire},
 	{"props_shelf_fall", SP_props_shelf_fall},	
@@ -696,7 +694,7 @@ spawn_t	spawns[] = {
 	// END JOSEPH
 
 	{"lightflare", SP_light},
-	{"path_corner_cast", SP_path_corner_cast},
+//	{"path_corner_cast", SP_path_corner_cast},
 
 // weapon mods
 	{"pistol_mod_damage",SP_pistol_mod_damage},
@@ -737,17 +735,13 @@ void ED_CallSpawn (edict_t *ent)
 		return;
 	}
 
-if (!Q_stricmp( ent->classname, "weapon_barmachinegun" ))
-{
-gi.dprintf("Hacking old BAR machine gun to grenade launcher for KPDM1-cash.bsp\n" );
-sprintf( ent->classname, "weapon_grenadelauncher" );
-}
-
-
 	// Ridah: hack, KPDM1 has "item_flametank" which are now "ammo_flametank"
 	if (!strcmp( ent->classname, "item_flametank" ))
 		strcpy( ent->classname, "ammo_flametank" );
 
+	//hypov8 hmg mod typo in kprad .def
+	if (!strcmp(ent->classname, "hmg_mod_colling"))
+		ent->classname = "hmg_mod_cooling";
 
 	// check item spawn functions
 	for (i=0,item=itemlist ; i<game.num_items ; i++,item++)
@@ -768,8 +762,6 @@ sprintf( ent->classname, "weapon_grenadelauncher" );
 		if (!strcmp(s->name, ent->classname))
 		{	// found it
 	
-			cvar_t	*props; 
-			
 			s->spawn (ent);
 
 			// Special light
@@ -780,8 +772,6 @@ sprintf( ent->classname, "weapon_grenadelauncher" );
 				ent->s.renderfx2 |= ent->lightit;
 			}			
 
-			props = gi.cvar("props", "1", CVAR_ARCHIVE);
-			
 			// JOSEPH 13-APR-99
 			ent->savesolid = ent->solid;				
 		
@@ -1046,12 +1036,15 @@ parsing textual entity definitions out of an ent file.
 */
 
 // Ridah 5-8-99
-char	last_changelevel[64];
 extern void LightConfigstrings ();
 
-vec3_t spawnvecs[]={
-	{992,1088,-40},{480,-1824,24},{-688,-1104,32},
-	{2536,408,584},{-224,-544,-40},{-1960,24,24},
+static vec3_t spawnvecs[]={
+	{992, 1088, -40},
+	{480, -1824, 24},
+	{-688, -1104, 32},
+	{2536, 408, 584},
+	{-224, -544, -40},
+	{-1960, 24, 24},
 };
 
 void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
@@ -1060,25 +1053,25 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 	int			inhibit;
 	char		*com_token;
 	int			i;
-	float		skill_level;
-    static int fStarted = 0;            // Standard Logging
 
 	time_t t;
 	time(&t);
+	gi.dprintf("%s", ctime(&t));
 
-    
-	gi.dprintf("%s",ctime(&t));
+	if (kpded2)
+	{
+		// make the Monkey Mod image downloadable (with kpded2)
+		dlindex("pics/mmod/test.tga");
+		if (teamplay->value)
+		{
+			// and the team indicators
+			dlindex("pics/mmod/team1.tga");
+			dlindex("pics/mmod/team2.tga");
+		}
+	}
 
-    
-	skill_level = floor (skill->value);
-	if (skill_level < 0)
-		skill_level = 0;
-	if (skill_level > 4)
-		skill_level = 4;
-	if (skill->value != skill_level)
-		gi.cvar_forceset("skill", va("%f", skill_level));
-
-	SaveClientData ();
+	//current map
+	gi.dprintf("Loading map: %s\n", mapname);
 
 // BEGIN:	Xatrix/Ridah/Navigator/21-mar-1998
 	NAV_PurgeActiveNodes (level.node_data);					
@@ -1087,25 +1080,10 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 	gi.FreeTags (TAG_LEVEL);
 	gi.ClearObjectBoundsCached();	// make sure we wipe the cached list
 
-//    if( fStarted ) sl_GameEnd( &gi, level );       // Standard Logging
-
 	memset (&level, 0, sizeof(level));
 	memset (g_edicts, 0, game.maxentities * sizeof (g_edicts[0]));
 
 	strncpy (level.mapname, mapname, sizeof(level.mapname)-1);
-	strncpy (game.spawnpoint, spawnpoint, sizeof(game.spawnpoint)-1);
-
-	// Ridah 5-8-99, if the spawnpoint starts with "pawn_" only retain it if we have just come from a "pawn_" level
-	//	ie. not if we just died
-	if (	(strstr(game.spawnpoint, "pawn_") == game.spawnpoint)
-		&&	(!last_changelevel || strstr(last_changelevel, "pawn_") != last_changelevel))
-	{	// clear it
-		game.spawnpoint[0] = '\0';
-	}
-
-	// now clear the changelevel string for next time
-	last_changelevel[0] = '\0';
-	// done.
 
 	num_object_bounds = 0;
 	memset (g_objbnds, 0, sizeof(g_objbnds));
@@ -1138,66 +1116,84 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 			ent = G_Spawn ();
 		entities = ED_ParseEdict (entities, ent);
 
-		// yet another map hack
-		if (!Q_stricmp(level.mapname, "command") && !Q_stricmp(ent->classname, "trigger_once") && !Q_stricmp(ent->model, "*27"))
-			ent->spawnflags &= ~SPAWNFLAG_NOT_HARD;
-
 		// remove things (except the world) from different skill levels or deathmatch
 		if (ent != g_edicts)
 		{
-            //snap - fragman fix
-            if (teamplay->value!=1)
-            {
-                if ((!strcmp(ent->classname,"dm_cashspawn"))
-                    ||(!strcmp(ent->classname,"dm_safebag"))
-                    ||(!strcmp(ent->classname,"item_cashbagsmall"))
-                    ||(!strcmp(ent->classname,"item_cashroll"))
-                    ||(!strcmp(ent->classname,"item_cashbaglarge"))
-                    ) 
-                {
-                    G_FreeEdict (ent);
-                    inhibit++;
-                    continue;
-                }
-            }
-            
-            if (deathmatch->value)
+			if ( ent->spawnflags & SPAWNFLAG_NOT_DEATHMATCH )
 			{
-				if (!strcmp(ent->classname,"info_player_deathmatch")) {
-					if ((!strcmp(level.mapname,"kpdm5") && VectorCompare(ent->s.origin,spawnvecs[0]))
-						|| (!strcmp(level.mapname,"kpdm2") && VectorCompare(ent->s.origin,spawnvecs[4]))
-						|| (!strcmp(level.mapname,"kpdm2") && VectorCompare(ent->s.origin,spawnvecs[5]))
-						|| (!strcmp(level.mapname,"kpdm4") && VectorCompare(ent->s.origin,spawnvecs[1]))) {
-						G_FreeEdict (ent);
-						inhibit++;
-						continue;
-					}
-					if (!strcmp(level.mapname,"sickre") && VectorCompare(ent->s.origin,spawnvecs[2])) {
-						ent->s.origin[1]=-1300;
-					}
-					if (!strcmp(level.mapname,"team_rival") && VectorCompare(ent->s.origin,spawnvecs[3])) {
-						ent->style=1;
-					}
-				}
-				if ( ent->spawnflags & SPAWNFLAG_NOT_DEATHMATCH )
+				G_FreeEdict (ent);	
+				inhibit++;
+				continue;
+			}
+			if (!strcmp(ent->classname, "info_player_deathmatch"))
+			{
+				if ((!strcmp(level.mapname, "kpdm5") && VectorCompare(ent->s.origin, spawnvecs[0]))
+					|| (!strcmp(level.mapname, "kpdm2") && VectorCompare(ent->s.origin, spawnvecs[4]))
+					|| (!strcmp(level.mapname, "kpdm2") && VectorCompare(ent->s.origin, spawnvecs[5]))
+					|| (!strcmp(level.mapname, "kpdm4") && VectorCompare(ent->s.origin, spawnvecs[1])))
 				{
-					G_FreeEdict (ent);	
+					G_FreeEdict (ent);
 					inhibit++;
 					continue;
 				}
-			}
-			else
-			{
-				if ( /* ((coop->value) && (ent->spawnflags & SPAWNFLAG_NOT_COOP)) || */
-					((skill->value == 0) && (ent->spawnflags & SPAWNFLAG_NOT_EASY)) ||
-					((skill->value == 1) && (ent->spawnflags & SPAWNFLAG_NOT_MEDIUM)) ||
-					(((skill->value == 2) || (skill->value >= 3)) && (ent->spawnflags & SPAWNFLAG_NOT_HARD))
-					)
+				if (!strcmp(level.mapname, "sickre") && VectorCompare(ent->s.origin, spawnvecs[2]))
+					ent->s.origin[1] = -1300;
+				if (!strcmp(level.mapname, "team_rival") && VectorCompare(ent->s.origin, spawnvecs[3]))
+					ent->style = 1;
+				{ // move or remove bad spawn points
+					static vec3_t mins = {-15, -15, -13}, maxs = {15, 15, 57};
+					trace_t tr;
+					tr = gi.trace(ent->s.origin, mins, maxs, ent->s.origin, NULL, CONTENTS_SOLID);
+					if (tr.startsolid)
 					{
-						G_FreeEdict (ent);	
-						inhibit++;
-						continue;
+						vec3_t origin;
+						VectorSet(origin, ent->s.origin[0], ent->s.origin[1], ent->s.origin[2] + 10);
+						tr = gi.trace(origin, mins, maxs, origin, NULL, CONTENTS_SOLID);
+						if (tr.startsolid)
+						{
+							origin[2] -= 2 * 10;
+							tr = gi.trace(origin, mins, maxs, origin, NULL, CONTENTS_SOLID);
+							if (tr.startsolid)
+							{
+								for (i=0; i<8; i++)
+								{
+									VectorCopy(ent->s.origin, origin);
+									if (i & 3)
+										origin[0] += i & 4 ? 8 : -8;
+									if ((i + 2) & 3)
+										origin[1] += (i + 2) & 4 ? 8 : -8;
+									tr = gi.trace(origin, mins, maxs, origin, NULL, CONTENTS_SOLID);
+									if (!tr.startsolid)
+										break;
+								}
+							}
+						}
+						if (tr.startsolid)
+						{
+							gi.dprintf ("%s startsolid at %s\n", ent->classname, vtos(ent->s.origin));
+							G_FreeEdict (ent);
+							inhibit++;
+							continue;
+						}
+						gi.dprintf ("%s startsolid at %s, moved to %s\n", ent->classname, vtos(ent->s.origin), vtos(origin));
+						VectorCopy(origin, ent->s.origin);
 					}
+				}
+			}
+			//snap - fragman fix
+			else if ((int)teamplay->value != 1)
+			{
+				if ((!strcmp(ent->classname, "dm_cashspawn"))
+					|| (!strcmp(ent->classname, "dm_safebag"))
+					|| (!strcmp(ent->classname, "item_cashbagsmall"))
+					|| (!strcmp(ent->classname, "item_cashroll"))
+					|| (!strcmp(ent->classname, "item_cashbaglarge"))
+					) 
+				{
+					G_FreeEdict (ent);
+					inhibit++;
+					continue;
+				}
 			}
 
 			ent->spawnflags &= ~(SPAWNFLAG_NOT_EASY|SPAWNFLAG_NOT_MEDIUM|SPAWNFLAG_NOT_HARD|SPAWNFLAG_NOT_COOP|SPAWNFLAG_NOT_DEATHMATCH);
@@ -1206,7 +1202,7 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 		ED_CallSpawn (ent);
 	}	
 
- 
+
 // Ridah, HACK, fix spawn spots in team_towers
 	if (!strcmp( level.mapname, "team_towers" ))
 	{
@@ -1284,6 +1280,31 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 
 	gi.dprintf ("%i entities inhibited\n", inhibit);
 
+	// fix any neutral spawn points close to a safe
+	if ((int)teamplay->value == 1)
+	{
+		edict_t	*safes[2] = { NULL, NULL };
+		edict_t	*spot = NULL;
+		while (spot = G_Find(spot, FOFS(classname), "dm_safebag"))
+			safes[spot->style == 2] = spot;
+		if (safes[0] && safes[1])
+		{
+			spot = NULL;
+			while ((spot = G_Find (spot, FOFS(classname), "info_player_deathmatch")) != NULL)
+			{
+				if (!spot->style)
+				{
+					float dist1 = VectorDistance(safes[0]->s.origin, spot->s.origin),
+						dist2 = VectorDistance(safes[1]->s.origin, spot->s.origin);
+					if (dist1 < dist2 / 2)
+						spot->style = 1;
+					else if (dist2 < dist1 / 2)
+						spot->style = 2;
+				}
+			}
+		}
+	}
+
 #ifdef DEBUG
 	i = 1;
 	ent = EDICT_NUM(i);
@@ -1299,9 +1320,6 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 
 	G_FindTeams ();
 
-		//current map
-	gi.dprintf("Loading map: %s\n", mapname);
-
 // BEGIN:	Xatrix/Ridah/Navigator/19-mar-1998
 	NAV_ReadActiveNodes (level.node_data, level.mapname);
 // END:		Xatrix/Ridah/Navigator/19-mar-1998
@@ -1309,8 +1327,22 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 	// RAFAEL
 	MDX_Bbox_Init ();
 
-//    sl_GameStart( &gi, level );	// Standard Logging
-
+	if (allow_map_voting)
+	{
+		// prepare map vote options now to make the map pics downloadable (with kpded2)
+		SetupMapVote();
+		if (kpded2)
+		{
+			int i;
+			for (i=1; i<=num_vote_set; i++)
+			{
+				char buf[MAX_QPATH];
+				Com_sprintf(buf, sizeof(buf), "pics/%s.pcx", maplist[vote_set[i]]);
+				if (file_exist(buf)) // not all maps have a pic so check it exists
+					dlindex(buf);
+			}
+		}
+	}
 }
 
 
@@ -1326,378 +1358,152 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 	yv <value>
 
 	// drawing
-	statpic <name>
-	pic <stat>
+	statpic <name>				// not supported by Kingpin (use "picn" instead)
+	pic <stat>					// not supported by Kingpin
 	num <fieldwidth> <stat>
 	string <stat>
 
 	// control
 	if <stat>
-	ifeq <stat> <value>
-	ifbit <stat> <value>
+	ifeq <stat> <value>			// not supported by Kingpin
+	ifbit <stat> <value>		// not supported by Kingpin
 	endif
 
 #endif
 
-// JOSEPH 15-FEB-99
-char *single_statusbar = 
-"yb	-24 "
-
-// health
-"xv	0 "
-"hnum "
-"xv	50 "
-"pic 0 "
-
-// ammo
-// JOSEPH 25-JAN-99
-"if 2 "
-"	xv	100 "
-"	anum 2 "
-"	xv	150 "
-"	pic 2 "
-"endif "
-// END JOSEPH
-
-
-// RAFAEL 
-// weapon clip
-"if 2 "
-"	xv	160 "
-"	wanum "
-"endif "
-
-// JOSEPH 23-JAN-99-B
-// cash
-"xv	350 "
-"cnum "
-"xv	400 "
-"pic 0 "
-// END JOSEPH
-
-// JOSEPH 2-FEB-99
-"talk "
-// END JOSEPH
-
-"hire "
-
-// armor
-"if 4 "
-"	xv	200 "
-"	rnum "
-"	xv	250 "
-"	pic 4 "
-"endif "
-
-// selected item
-"if 6 "
-"	xv	296 "
-"	pic 6 "
-"endif "
-
-"yb	-50 "
-
-// JOSEPH 25-JAN-99
-// picked up item
-"if 17 "
-"	xv	0 "
-"	pic 7 "
-"	xv	26 "
-"	yb	-42 "
-"	stat_string 8 7 "
-"	yb	-50 "
-"endif "
-// END JOSEPH
-
-// Ridah, 26-may-99, disabled this since it's listed above also (duplicated, so it's being drawn twice)
-#if 0
-// JOSEPH 11-APR-99
-// cash
-"xv	350 "
-"cnum "
-"xv	400 "
-"pic 0 "
-// END JOSEPH
-#endif
-
-// timer
-"if 9 "
-"	xv	262 "
-"	num	2	10 "
-"	xv	296 "
-"	pic	9 "
-"endif "
-
-//  help / weapon icon 
-"if 11 "
-"	xv	148 "
-"	pic	11 "
-"endif "
-;
-
 char *dm_statusbar =
-"yb	-24 "
 
-// health
-"xv	0 "
 "hnum "
-"xv	50 "
-"pic 0 "
 
 // ammo
-// JOSEPH 25-JAN-99
 "if 2 "
-"	xv	100 "
 "	anum 2 "
-"	xv	150 "
-"	pic 2 "
-"endif "
-// END JOSEPH
-
-
-// RAFAEL 
 // weapon clip
-"if 2 "
-"	xv	160 "
 "	wanum "
 "endif "
 
 // Ridah, 26-may-99, show frag count
-"xv 350 "
 "frags "
 
-// JOSEPH 2-FEB-99
 "talk "
-// END JOSEPH
 
 "hire "
 
-"if 4 "
-"	xv	200 "
-"	rnum "
-"	xv	250 "
-"	pic 4 "
-"endif "
-
-// selected item
-"if 6 "
-"	xv	296 "
-"	pic 6 "
-"endif "
-
-"yb	-50 "
-
 // picked up item
 "if 17 "
-"	xv	0 "
-"	pic 7 "
-"	xv	26 "
-"	yb	-42 "
 "	stat_string 8 7 "
-"	yb	-50 "
 "endif "
 
 // timer
 "if 10 "
-"	yt  50	"
+"	yt	50 "
 "	xr	-75 "
-"string \"Time Left\" "
+"	string \"Time Left\" "
 "	yt	65 "
 "	xr	-55 "
-"	num 2 10"
-"endif "
-
-
-//  help / weapon icon 
-"if 11 "
-"	xv	148 "
-"	pic	11 "
+"	num 2 10 "
 "endif "
 ;
 
 char *teamplay_statusbar =
-"yb	-24 "
+
+// current team indicator
+"yt	0 "
+"xr	-20 "
+"if 24 "
+"	picn /pics/mmod/team1.tga "
+"endif "
+"if 25 "
+"	picn /pics/mmod/team2.tga "
+"endif "
 
 // health
-"xv	0 "
 "hnum "
-"xv	50 "
-"pic 0 "
 
 // ammo
 "if 2 "
-"	xv	100 "
 "	anum 2 "
-"	xv	150 "
-"	pic 2 "
-"endif "
-
 // weapon clip
-"if 2 "
-"	xv	160 "
 "	wanum "
 "endif "
 
 // cash
-"xv	350 "
 "cnum "
-"xv	400 "
-"pic 0 "
-
-"if 4 "
-"	xv	200 "
-"	rnum "
-"	xv	250 "
-"	pic 4 "
-"endif "
-
-// Begin cash
-/*"   xr -103 "
-"   yt 45 "
-"   string \"BAG$ \" "
-"   xr -72 "
-"   yt 41 "
-"	num	3 24 "
-
-"talk "
-//end cash*/
-
-// selected item
-"if 6 "
-"	xv	296 "
-"	pic 6 "
-"endif "
-
-"yb	-50 "
 
 // picked up item
 "if 17 "
-"	xv	0 "
-"	pic 7 "
-"	xv	26 "
-"	yb	-42 "
 "	stat_string 8 7 "
-"	yb	-50 "
 "endif "
 
 // timer
 "if 10 "
-"	yt  140	"
+"	yt	110 "
 "	xr	-75 "
-"string \"Time Left\" "
-"	yt	155 "
+"	string \"Time Left\" "
+"	yt	125 "
 "	xr	-55 "
-"	num 2 10"
-"endif "
-
-//  help / weapon icon 
-"if 11 "
-"	xv	148 "
-"	pic	11 "
+"	num 2 10 "
 "endif "
 
 // m8's cash
 "if 23 "
 "	yb	-45 "
 "	xm	-46 "
-"string \"CA$H\" "
+"	string \"CA$H\" "
 "	yb	-35 "
 "	xm	-58 "
 "	num 3 23 "
 "endif "
 
 // Bagged cash
-"bagcash "  //tical - taken out (gl_ztrick)
+"bagcash "
 
 // Ridah, teamplay scores (NOTE: THIS MUST BE LAST!!)
 "teams "
-//"%s "	disabled, since they get added dynamically according to the team-name strings
-//"%s "
-
 ;
 
 char *teamplayDM_statusbar =
-"yb	-24 "
+
+// current team indicator
+"yt	0 "
+"xr	-20 "
+"if 24 "
+"	picn /pics/mmod/team1.tga "
+"endif "
+"if 25 "
+"	picn /pics/mmod/team2.tga "
+"endif "
 
 // health
-"xv	0 "
 "hnum "
-"xv	50 "
-"pic 0 "
 
 // ammo
 "if 2 "
-"	xv	100 "
 "	anum 2 "
-"	xv	150 "
-"	pic 2 "
-"endif "
-
 // weapon clip
-"if 2 "
-"	xv	160 "
 "	wanum "
 "endif "
 
 // show frag count
-"xv 350 "
 "frags "
-
-// cash
-//"xv	350 "
-//"cnum "
-//"xv	400 "
-//"pic 0 "
-
-"if 4 "
-"	xv	200 "
-"	rnum "
-"	xv	250 "
-"	pic 4 "
-"endif "
-
-// selected item
-"if 6 "
-"	xv	296 "
-"	pic 6 "
-"endif "
-
-"yb	-50 "
 
 // picked up item
 "if 17 "
-"	xv	0 "
-"	pic 7 "
-"	xv	26 "
-"	yb	-42 "
 "	stat_string 8 7 "
-"	yb	-50 "
 "endif "
 
 // timer
 "if 10 "
-"	yt  140	"
+"	yt	50 "
 "	xr	-75 "
-"string \"Time Left\" "
-"	yt	155 "
+"	string \"Time Left\" "
+"	yt	65 "
 "	xr	-55 "
-"	num 2 10"
+"	num 2 10 "
 "endif "
-
-//  help / weapon icon 
-"if 11 "
-"	xv	148 "
-"	pic	11 "
-"endif "
-
-// Bagged cash
-//"bagcash "
 
 // Ridah, teamplay scores (NOTE: THIS MUST BE LAST!!)
 "teams "
-//"%s "	disabled, since they get added dynamically according to the team-name strings
-//"%s "
-
 ;
 
 
@@ -1710,30 +1516,17 @@ Only used for the world.
 "gravity"	800 is default gravity
 "message"	text to print at user logon
 */
-int	client_connected;
-
 void SP_worldspawn (edict_t *ent)
 {
-
-	int maps, i, found, j, k, unique, selection;
-	char mappic[100];
 	// Ridah, don't allow deathmatching in single player maps
-	if (ent->count && deathmatch->value)
+	if (ent->count && deathmatch_value)
 	{
 		gi.error("\nCannot play this map in DEATHMATCH mode.\n");
 		return;
 	}
 
-	if (!deathmatch->value)
-	{
-		// stop them from screwing up single player
-		gi.cvar_forceset( "dmflags", "784" );
-	}
-
 	// Ridah, so we can init soundindex's for voice_table's
 	gameinc++;
-
-	client_connected = 0;
 
 	ent->movetype = MOVETYPE_PUSH;
 	ent->solid = SOLID_BSP;
@@ -1742,35 +1535,11 @@ void SP_worldspawn (edict_t *ent)
 
 	//---------------
 
-	// clear all precached voices
-	if (num_precached_voices)
-	{
-		int i;
-
-		for (i=0; i<num_precached_voices; i++)
-			precached_voices[i]->soundindex = 0;
-
-		num_precached_voices = 0;
-	}
-
-	memset( g_cast_memory, 0, MAX_CHARACTERS * MAX_CHARACTERS * sizeof(cast_memory_t) );
-	memset( g_cast_groups, 0, MAX_CAST_GROUPS * sizeof(cast_group_t) );
-
 	num_flares = 0;
 	level.num_light_sources = 0;
 
-	level.episode = ent->count;
-
 	// Teamplay
 	Teamplay_InitTeamplay();
-
-	// Ridah, hack, since the bar doesn't have an episode value set
-	// if (!level.episode)
-	//	level.episode = 1;
-
-	// Ridah, init the lightpaint buffers
-	memset( lpbuf, 0, sizeof(lpbuf) );
-	num_lpbuf = 0;
 
 	// reserve some spots for dead player bodies for coop / deathmatch
 	InitBodyQue ();
@@ -1783,13 +1552,11 @@ void SP_worldspawn (edict_t *ent)
 
 	// make some data visible to the server
 
+	// set CS_CDTRACK first so that CS_NAME can overwrite it if needed for long map names
+	gi.configstring (CS_CDTRACK, va("%i", ent->sounds) );
+
 	if (ent->message && ent->message[0])
-	{
 		gi.configstring (CS_NAME, ent->message);
-		strncpy (level.level_name, ent->message, sizeof(level.level_name));
-	}
-	else
-		strncpy (level.level_name, level.mapname, sizeof(level.level_name));
 
 	gi.configstring (CS_DENSITY, va("%f", st.fogdensity));
 	gi.configstring (CS_FOGVAL, va("%f %f %f", st.fogval[0], st.fogval[1], st.fogval[2]));
@@ -1803,17 +1570,15 @@ void SP_worldspawn (edict_t *ent)
 	else
 		gi.configstring (CS_SKY, "sr");
 
-	gi.configstring (CS_CDTRACK, va("%i", ent->sounds) );
-
 	gi.configstring (CS_MAXCLIENTS, va("%i", (int)(maxclients->value) ) );
 
 	// status bar program
-	if (teamplay->value && deathmatch->value)
+	if (teamplay->value)
 	{
 		char str[1024];
 
 		// add the team names
-		strcpy( str, teamplay->value==4?teamplayDM_statusbar:teamplay_statusbar );
+		strcpy( str, teamplay->value == 4 ? teamplayDM_statusbar : teamplay_statusbar );
 		strcat( str, "\"" );
 		strcat( str, team_names[1] );
 		strcat( str, "\" \"" );
@@ -1821,28 +1586,12 @@ void SP_worldspawn (edict_t *ent)
 		strcat( str, "\" " );
 		gi.configstring (CS_STATUSBAR, str);
 	}
-	else if (deathmatch->value)
+	else
 	{
 		gi.configstring (CS_STATUSBAR, dm_statusbar);
 	}
-	else
-	{
-		gi.configstring (CS_STATUSBAR, single_statusbar);
-	}
 
 	//---------------
-
-	// help icon for statusbar
-	/*
-	// Rafael: not in demo
-	
-	// we will be using this in the demo when Maxx makes the artwork
-
-	gi.imageindex ("i_help");
-	level.pic_health = gi.imageindex ("i_health");
-	gi.imageindex ("help");
-	gi.imageindex ("field_3");
-	*/
 
 	if (!st.gravity)
 		gi.cvar_set("sv_gravity", "800");
@@ -1853,32 +1602,12 @@ void SP_worldspawn (edict_t *ent)
 	snd_fry = gi.soundindex ("actors/player/male/fry.wav");	// standing in lava / slime
 	// END JOSEPH
 
-	// PrecacheItem (FindItem ("Blaster"));
-
-
-	// Ridah, in-game effects
-//	sp_blood1 = gi.modelindex("sprites/blood/blood1.sp2");
-
-
-	// JOSEPH 29-MAR-99
-	//gi.soundindex ("actors/player/lava1.wav");
-	//gi.soundindex ("actors/player/lava2.wav");
-	//gi.soundindex ("misc/pc_up.wav");
-	//gi.soundindex ("misc/talk1.wav");
-	//gi.soundindex ("misc/udeath.wav");
-
-	// gibs
-	//gi.soundindex ("items/respawn1.wav");
-	// END JOSEPH
-
 	// sexed sounds
 
 	gi.soundindex ("*death1.wav");
 	gi.soundindex ("*death2.wav");
 	gi.soundindex ("*death3.wav");
 	gi.soundindex ("*death4.wav");
-	//gi.soundindex ("*fall1.wav");
-	//gi.soundindex ("*fall2.wav");	
 	gi.soundindex ("*gurp1.wav");		// drowning damage
 	gi.soundindex ("*gurp2.wav");	
 	gi.soundindex ("*jump1.wav");		// player jump
@@ -1893,32 +1622,11 @@ void SP_worldspawn (edict_t *ent)
 	gi.soundindex ("*pain100_1.wav");
 	gi.soundindex ("*pain100_2.wav");
 
-		//-------------------
+	//-------------------
 
 	// JOSEPH 29-MAR-99 
 	gi.soundindex ("actors/player/male/gasp1.wav");		// gasping for air
 	gi.soundindex ("actors/player/male/gasp2.wav");		// head breaking surface, not gasping
-
-	//gi.soundindex ("actors/player/watr_in.wav");	// feet hitting water
-	//gi.soundindex ("actors/player/step water/step water.wav");	// feet leaving water
-
-	//gi.soundindex ("actors/player/watr_un.wav");	// head going underwater
-	
-	//gi.soundindex ("actors/player/u_breath1.wav");
-	//gi.soundindex ("actors/player/u_breath2.wav");
-	//gi.soundindex ("items/pkup.wav");		// bonus item pickup
-
-	//gi.soundindex ("world/land.wav");		// landing thud
-	//gi.soundindex ("misc/h2ohit1.wav");		// landing splash
-
-	//gi.soundindex ("items/damage.wav");
-	
-	//gi.soundindex ("items/protect.wav");
-	//gi.soundindex ("items/protect4.wav");
-	//gi.soundindex ("weapons/noammo.wav");
-	// END JOSEPH
-
-//	gi.soundindex ("infantry/inflies1.wav");
 
 // JOSEPH 22-JAN-99
 	gi.soundindex ("world/trash1.wav");
@@ -2026,87 +1734,8 @@ void SP_worldspawn (edict_t *ent)
 	// END 28-OCT-98
 
 	// styles 32-62 are assigned by the light program for switchable lights
-	// styles 32-62 are assigned by the light program for switchable lights
 
 	// 63 testing
 	gi.configstring(CS_LIGHTS+63, "a");
-	
-	if(allow_map_voting && custom_map_filename[0]!=0)
-	{
-		//tical - caching the custom maps levelshots
-		i = 0;
-		found = false;
-		while ((!found) && (i < (num_custom_maps - 1) )) 
-		{	
-			if (Q_stricmp (custom_list[i].custom_map,level.mapname) == 0)
-			{
-				vote_set[1] = i+1;
-				found = true;
-			}
-			i++;
-		}
-		if (!found)
-			vote_set[1] = 0;
-		
-		if (num_custom_maps < 9) // less than 9 maps found, just display them all
-		{
-			i = vote_set[1];
-			for (j=2; j< (num_custom_maps+2); j++)
-			{
-				i++;
-				if (i == num_custom_maps)
-					i=0;
-				vote_set[j] = i;
-			}
-			return;
-		}
-		// first map is always the next in the rotations
-		srand((unsigned int)time((time_t *)NULL));
-		
-		for (i=2; i < 6; i++) // 2-5 are weighted by rank
-		{
-			unique = false;
-			while (!unique)
-			{		
-				selection = rand() % total_rank;
-				j=0;
-				while (selection >= 0)
-				{
-					selection -= custom_list[j].rank;
-					j++;
-				}
-				vote_set[i] = (j-1);
-				unique = true;
-				for (k=0; k < i; k++)
-					if (vote_set[i] == vote_set[k])
-						unique = false;
-			}
-		}
-		
-		for (i=6; i < 9; i++) // 6-8 are just picked at random
-		{
-			unique = false;
-			while (!unique)
-			{		
-				selection = rand() % num_custom_maps;
-				vote_set[i] = selection;
-				unique = true;
-				for (k=0; k < i; k++)
-					if (vote_set[i] == vote_set[k])
-						unique = false;
-			}
-		}
-		if (num_custom_maps < 8 )
-			maps = num_custom_maps;
-		else
-			maps = 8;
-		
-		for(i=1; i<=maps; i++)
-		{
-			sprintf(mappic,"pics/%s.pcx",custom_list[vote_set[i]].custom_map);
-			gi.imageindex (mappic);
-		}
-		//end tical
-	}
 }
 

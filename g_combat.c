@@ -145,8 +145,10 @@ Killed
 void Killed (edict_t *targ, edict_t *inflictor, edict_t *attacker, int damage, vec3_t point, int mdx_part, int mdx_subobject)
 {
 
-	if (hit) {
-		switch (meansOfDeath) {
+	if (hit)
+	{
+		switch (meansOfDeath)
+		{
 			case MOD_BLACKJACK:
 			case MOD_CROWBAR:
 				attacker->client->resp.fav[0]++;
@@ -186,101 +188,11 @@ void Killed (edict_t *targ, edict_t *inflictor, edict_t *attacker, int damage, v
 	if (targ->client || (targ->svflags & SVF_MONSTER))
 		targ->s.renderfx2 &= ~RF2_FLAMETHROWER;
 
-	if ((targ->svflags & SVF_MONSTER) && (targ->deadflag != DEAD_DEAD))
-	{
-		cast_memory_t *mem;
-
-		// Ridah 5-8-99, so we can shoot through dying characters
-		targ->maxs[2] = 0;
-		gi.linkentity( targ );
-		
-		// JOSEPH 12-MAR-99
-		/*
-		if (targ->leader && targ->leader->client)
-		{
-			targ->leader->client->pers.friends--;
-		}
-
-		targ->leader = NULL;	
-		*/		
-		// END JOSEPH
-		
-		{
-			edict_t *player;
-			cast_memory_t *cast_memory;
-
-			player = &g_edicts[1];
-			
-			cast_memory = level.global_cast_memory[targ->character_index][player->character_index];
-
-			if (cast_memory && cast_memory->flags & MEMORY_HIRED)
-				player->client->pers.friends--;
-
-		}
-
-		targ->leader = NULL;		
-
-
-
-		if (attacker->client && attacker->client->gun_noise) // a guy killed with the silencer should not wake the others up
-		{
-			// Share our list of enemies, so surrounding friends can seek revenge
-			mem = targ->cast_info.friend_memory;
-			while (mem)
-			{
-				if (mem->timestamp > (level.time - 3))
-				{
-					AI_ShareEnemies( targ, &g_edicts[mem->cast_ent] );
-				}
-
-				mem = mem->next;
-			}
-		}
-
-		// Simulate triggering a combattarget
-		if (targ->combattarget)
-			AI_Goto_CombatTarget( targ );
-		else if (targ->combat_goalent)
-		{	// trigger it in 2 seconds
-			char *savetarget;
-			edict_t *target;
-
-			target = targ->combat_goalent;
-
-			if (target->delay < 2)
-				target->delay = 2;
-
-			savetarget = target->target;
-			target->target = target->pathtarget;
-			G_UseTargets (target, targ);
-			target->target = savetarget;
-		}
-	}
-
-	// Remove them from the game
-	AI_UnloadCastMemory ( targ );
-
-	// if they were killed by an AI character, send them back to their start point
-	if (attacker->svflags & SVF_MONSTER && !attacker->goal_ent && attacker->start_ent
-		&& (!attacker->enemy || (attacker->enemy == targ)))
-	{
-		attacker->goal_ent = attacker->start_ent;
-	}
-
 	if (targ->movetype == MOVETYPE_PUSH || targ->movetype == MOVETYPE_STOP || targ->movetype == MOVETYPE_NONE)
 	{	// doors, triggers, etc
 		targ->die (targ, inflictor, attacker, damage, point, mdx_part, mdx_subobject);
 		return;
 	}
-
-	if ((targ->svflags & SVF_MONSTER) && (targ->deadflag != DEAD_DEAD))
-	{
-		targ->touch = NULL;
-		cast_death_use (targ);
-	}
-
-	if (targ->svflags & SVF_MONSTER)
-		EP_SpecialEventDeath (targ);
 
 	targ->die (targ, inflictor, attacker, damage, point, mdx_part, mdx_subobject);
 
@@ -292,17 +204,15 @@ void Killed (edict_t *targ, edict_t *inflictor, edict_t *attacker, int damage, v
 SpawnDamage
 ================
 */
-
-//int	sp_blood1;
-
 void SpawnDamage (edict_t *self, int type, vec3_t origin, vec3_t normal, int damage)
 {
-//	int		i, cnt;
-//	vec3_t	vec;
-//	edict_t	*sprent;
-
-	if ((cl_parental_lock->value && !cl_parental_override->value) && type == TE_BLOOD)
-		return;
+	// make sure the damage shows up where the client currently is
+	if (self->client && self->client->saved.time)
+	{
+		origin[0] += self->client->saved.origin[0] - self->s.origin[0];
+		origin[1] += self->client->saved.origin[1] - self->s.origin[1];
+		origin[2] += self->client->saved.origin[2] - self->s.origin[2];
+	}
 
 	if (damage > 127)
 		damage = 127;
@@ -321,54 +231,6 @@ void SpawnDamage (edict_t *self, int type, vec3_t origin, vec3_t normal, int dam
 	}
 	// END JOSEPH
 	gi.multicast (origin, MULTICAST_PVS);
-
-/*
-	// FIXME: move these to the client-side TE_* effects
-
-	cnt = (int)(damage/2);
-	if (cnt > 4)
-		cnt = 4;
-
-	// Ridah, spawn some sprite effects
-	switch (type)
-	{
-	case TE_BLOOD:
-		for (i=0; i<cnt; i++)
-		{
-			sprent = G_Spawn();
-			VectorSet( sprent->s.origin,
-				origin[0] + crandom()*4,
-				origin[1] + crandom()*4,
-				origin[2] + crandom()*4 );
-
-			VectorClear( sprent->mins );
-			VectorClear( sprent->maxs );
-
-			VectorSubtract( origin, self->s.origin, vec );
-			vec[2] = 0;
-			VectorNormalize( vec );
-
-			VectorSet( sprent->velocity,
-				random()*40*vec[0],
-				random()*40*vec[1],
-				80 + 100*random() );
-
-			sprent->s.modelindex = sp_blood1;
-			sprent->s.frame = rand()%9;
-			sprent->movetype = MOVETYPE_BOUNCE;
-			sprent->clipmask = MASK_SOLID;
-			sprent->solid = SOLID_BBOX;
-//			sprent->s.effects |= EF_GIB;
-			sprent->owner = self;
-			sprent->think = G_FreeEdict;
-			sprent->nextthink = level.time + 1.0;
-			sprent->classname = "sp_blood1";
-
-			gi.linkentity( self );
-		}
-		break;
-	}
-*/
 }
 
 
@@ -388,9 +250,6 @@ void SpawnBloodPool (edict_t *self)
 	{
 		return;
 	}
-
-	if (cl_parental_lock->value && !cl_parental_override->value)
-		return;
 
 	VectorCopy (self->s.origin, origin);
 	
@@ -513,193 +372,6 @@ dflags		these flags are used to control how T_Damage works
 ============
 */
 
-static int CheckArmor (edict_t *ent, vec3_t point, vec3_t normal, int damage, int te_sparks, int dflags)
-{
-	gclient_t	*client;
-	int			save;
-	int			index;
-	gitem_t		*armor;
-
-	if (!damage)
-		return 0;
-
-	client = ent->client;
-
-	if (!client)
-		return 0;
-/*
-{
-static int done=0;
-// if (!done)
-// gi.dprintf( "NOTE: Armour has been disabled (was preventing bullet damage)\n");
-done = 1;
-return 0;
-}
-*/
-	if (dflags & DAMAGE_NO_ARMOR)
-		return 0;
-
-	index = ArmorIndex (ent);
-	if (!index)
-		return 0;
-
-	armor = GetItemByIndex (index);
-
-	if (dflags & DAMAGE_ENERGY)
-		save = ceil(((gitem_armor_t *)armor->info)->energy_protection*damage);
-	else
-		save = ceil(((gitem_armor_t *)armor->info)->normal_protection*damage);
-	if (save >= client->pers.inventory[index])
-		save = client->pers.inventory[index];
-
-	if (!save)
-		return 0;
-
-	client->pers.inventory[index] -= save;
-	SpawnDamage (ent, te_sparks, point, normal, save);
-
-	return save;
-}
-
-void M_ReactToDamage (edict_t *targ, edict_t *attacker, float damage)
-{
-	cast_memory_t	*cast_memory;
-	int i;
-
-	if (targ->health <= 0)
-		return;
-
-	if (!(attacker->client) && !(attacker->svflags & SVF_MONSTER))
-		return;
-
-	if (!(targ->client) && !(targ->svflags & SVF_MONSTER))
-		return;
-
-
-	// stop hiding, someone has hurt us
-	if (	(targ->cast_info.aiflags & AI_TAKE_COVER)
-		&&	(!targ->combat_goalent || (VectorDistance(targ->s.origin, targ->combat_goalent->s.origin) < 48)))
-	{
-		targ->cast_info.aiflags &= ~AI_TAKE_COVER;
-		if (targ->combat_goalent)
-			targ->combat_goalent = NULL;
-
-		targ->dont_takecover_time = level.time + 2;
-	}
-
-	if (attacker == targ || attacker == targ->enemy)
-		return;
-
-	// friendly fire?
-	if ((targ->cast_group == attacker->cast_group) && (targ->cast_group == 1) && attacker->client)
-	{
-		if (damage > 40)
-			targ->missteam = 1;
-
-		if (!targ->enemy && (targ->missteam++ > 0) && level.global_cast_memory[targ->character_index][attacker->character_index])
-		{	// make them an enemy
-
-			// Ridah, 17-may-99, make sure other hiredguys's don't attack their leader
-			for (i=1; i<level.num_characters; i++)
-			{
-				if (level.characters[i] && (level.characters[i]->cast_group == 1) && (level.global_cast_memory[i][targ->character_index]) && (level.characters[i]->leader == attacker))
-				{
-					AI_RemoveFromMemory( level.characters[i], level.global_cast_memory[i][targ->character_index] );
-					AI_RemoveFromMemory( targ, level.global_cast_memory[targ->character_index][i] );
-					AI_AddToMemory( level.characters[i], level.global_cast_memory[i][targ->character_index], MEMORY_TYPE_ENEMY );
-					AI_AddToMemory( targ, level.global_cast_memory[targ->character_index][i], MEMORY_TYPE_ENEMY );
-					AI_MakeEnemy( level.characters[i], targ, 0 );
-					level.characters[i]->enemy = targ;
-				}
-			}
-
-			AI_RemoveFromMemory( targ, level.global_cast_memory[targ->character_index][attacker->character_index] );
-			AI_AddToMemory( targ, level.global_cast_memory[targ->character_index][attacker->character_index], MEMORY_TYPE_ENEMY );
-			targ->cast_group = 0;
-			targ->leader = NULL;
-			AI_MakeEnemy( targ, attacker, 0 );
-			targ->enemy = attacker;
-		}
-		else
-		{
-			if (targ->gender == GENDER_MALE)
-				Voice_Random( targ, attacker, friendlypain, NUM_FRIENDLYPAIN );
-			else if (targ->gender == GENDER_FEMALE)
-// Ridah, 17-may-99, we can't ship with a todo message, so just play a pain sound
-//				gi.dprintf( "FIXME: Female \"Quit shootin me!\"" );
-				Voice_Random( targ, attacker, female_specific, 4 );
-		}
-	}
-
-	// they aren't on our side, are they a friend?
-	if (!(cast_memory = level.global_cast_memory[targ->character_index][attacker->character_index]))
-	{	// record this sighting, so we can start to attack them
-
-		AI_RecordSighting(targ, attacker, VectorDistance(targ->s.origin, attacker->s.origin) );
-		cast_memory = level.global_cast_memory[targ->character_index][attacker->character_index];
-
-	}
-
-	if (cast_memory->memory_type == MEMORY_TYPE_FRIEND)
-	{
-		// gi.dprintf("SOUND TODO: Are you done shooting me?\n");
-		return;		// let them off easy
-	}
-
-	if ((cast_memory->memory_type != MEMORY_TYPE_ENEMY) || !(cast_memory->flags & MEMORY_HOSTILE_ENEMY))
-	{
-		// make them a hostile enemy
-		AI_MakeEnemy( targ, attacker, 0 );
-	}
-
-	// if we're attacking someone else, and this is a client, get mad at them!
-	if (attacker->cast_group != targ->cast_group && targ->enemy != attacker && attacker->client)
-	{
-		AI_StartAttack( targ, attacker );
-	}
-
-}
-
-// returns TRUE if attacker is on same team (can't damage)
-qboolean CheckTeamDamage (edict_t *targ, edict_t *attacker)
-{
-	if (targ == attacker)	// we can always hurt ourselves
-		return false;
-
-	if (targ->client->pers.friendly_vulnerable)
-		return true;
-
-	if (teamplay->value && targ && attacker && attacker->client && targ->client && (targ->client->pers.team) && (targ->client->pers.team == attacker->client->pers.team))
-		return true;
-	else
-		return false;
-}
-
-// Ridah, health_threshold targetting
-void CheckHealthTarget( edict_t *targ, char *target )
-{
-	edict_t *goal;
-
-	goal = G_Find( NULL, FOFS(targetname), target );
-
-	if (goal)
-	{
-		if (!strcmp(goal->classname, "misc_use_cutscene") || strstr(goal->classname, "trigger_"))
-		{		// trigger it
-			goal->use( goal, targ, targ );
-		}
-		else	// walk to it
-		{
-			targ->goal_ent = goal;
-			targ->cast_info.aiflags |= AI_GOAL_IGNOREENEMY;
-			targ->cast_info.aiflags &= ~AI_TAKE_COVER;
-
-			targ->cast_info.currentmove = targ->cast_info.move_run;
-			targ->goal_ent->cast_info.aiflags |= AI_GOAL_RUN;
-		}
-	}
-}
-
 void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir, vec3_t point, vec3_t normal, int damage, int knockback, int dflags, int mod)
 {
 	gclient_t	*client;
@@ -708,8 +380,9 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 	int			asave;
 	int			te_sparks;
 	float		dmg;
+	vec3_t		sparkspoint;
 
-	hit=0;
+	hit = 0;
 
 	dmg = (float)abs(damage);	// tical/jjaf
 
@@ -724,64 +397,35 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 	// friendly fire avoidance
 	// if enabled you can't hurt teammates (but you can hurt yourself)
 	// knockback still occurs
-	if (!(dflags & DAMAGE_NO_PROTECTION) && (targ != attacker) && ((deathmatch->value && (teamplay->value || ((int)(dmflags->value) & (DF_MODELTEAMS/*| DF_SKINTEAMS*/))) /*|| coop->value*/)))
+	if (!(dflags & DAMAGE_NO_PROTECTION) && (targ != attacker) && ((deathmatch_value && (teamplay->value || ((int)(dmflags->value) & (DF_MODELTEAMS/*| DF_SKINTEAMS*/))) /*|| coop->value*/)))
 	{
-	  //  cprintf (targ, PRINT_HIGH, "1 brace\n");
-        if ((OnSameTeam (targ, attacker)) && (!targ->client->pers.friendly_vulnerable))
+		if ((OnSameTeam (targ, attacker)) && (!targ->client->pers.friendly_vulnerable))
 		{
-           // cprintf (targ, PRINT_HIGH, "2 brace\n");
 			if ((int)(dmflags->value) & DF_NO_FRIENDLY_FIRE)
 			{
-             //   cprintf (targ, PRINT_HIGH, "3 brace\n");
 				dmg = 0;
 			}
 			else
-            {
-              //  cprintf (targ, PRINT_HIGH, "4 brace\n");
 				mod |= MOD_FRIENDLY_FIRE;
-            }
-		} 
-        else if (attacker->client && !targ->deadflag)
-        {
-			hit=1;
-          //  cprintf (targ, PRINT_HIGH, "5 brace\n");
-        }
-	} 
-    else if (attacker->client && !targ->deadflag && targ!=attacker)
-    {
-		hit=1;
-      //  cprintf (targ, PRINT_HIGH, "6 brace\n");
-    }
+		}
+		else if (attacker->client && !targ->deadflag)
+			hit = 1;
+	}
+	else if (attacker->client && !targ->deadflag && targ != attacker)
+		hit = 1;
 	meansOfDeath = mod;
 
-	// easy mode takes half damage
-	if (deathmatch->value == 0 && targ->client)
+	if (dm_realmode->value == 2)
 	{
-       // cprintf (targ, PRINT_HIGH, "7 brace\n");
-		if (skill->value == 0)
-			dmg *= 0.2;		// Ridah, bumped it up a bit, since Rockets were only doing 2% health, 4% would be a bit more reasonable
-		else if (skill->value == 1)
-			dmg *= 0.35;
-		else if (skill->value == 2)
-			dmg *= 0.60;
-		else if (skill->value == 3)
-			dmg *= 0.80;
-
-		if (skill->value >= 2)
-		{
-			if (rand()%(2 + (int)skill->value * 2) > 4)
-				dmg *= 2;			// randomized simulation of head shot
-		}
-
-		if (dmg < 1)
-			dmg = 1;
-
-
-		// gi.dprintf ("dmg: %5.2f\n", dmg);
+		// only 20% (actually 10% due to DAMAGE_RADIUS) self-damage in rocketmode
+		if (attacker == targ && inflictor != targ)
+			dmg /= 5;
+		// only 25% falling damage in rocketmode
+		else if (mod == MOD_FALLING)
+			dmg /= 4;
 	}
-	else if (deathmatch->value && dm_realmode->value && attacker != targ && attacker->client)
+	else if (dm_realmode->value && attacker != targ && attacker->client)
 	{
-      //  cprintf (targ, PRINT_HIGH, "8 brace\n");
 		dmg *= 4;
 	}
 
@@ -797,6 +441,22 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 	else
 		te_sparks = TE_SPARKS;
 	// END JOSEPH
+
+	VectorCopy(point, sparkspoint);
+	if (dflags & DAMAGE_RADIUS)
+	{
+		// make the blood come from the player (not the wall)
+		sparkspoint[0] = targ->s.origin[0];
+		sparkspoint[1] = targ->s.origin[1];
+		if (sparkspoint[2] < targ->s.origin[2])
+			sparkspoint[2] = targ->s.origin[2];
+		else if (sparkspoint[2] > targ->s.origin[2] + targ->maxs[2])
+			sparkspoint[2] = targ->s.origin[2] + targ->maxs[2];
+
+		// 50% less radius damage in rocketmode
+		if (dm_realmode->value == 2)
+			dmg /= 2;
+	}
 
 	VectorNormalize(dir);
 
@@ -848,7 +508,7 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 				mass = targ->mass;
 
 			// JOSEPH 13-MAY-99
-			if (targ->client  && (attacker == targ) && deathmatch->value)
+			if (targ->client  && (attacker == targ) && deathmatch_value)
 				VectorScale (dir, 1600.0 * (float)knockback / mass, kvel);	// the rocket jump hack...
 			else if (targ->client  && (attacker == targ))
 				VectorScale (dir, 128.0 * (float)knockback / mass, kvel);
@@ -870,16 +530,16 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 		gitem_t *item = NULL;
 		int     random;
 		float	takefactor;	
-		
-      //  cprintf (targ, PRINT_HIGH, "9 brace\n");
-        // JOSEPH 21-MAY-99
-		if (mod == MOD_DOGBITE)
+
+		if (point != targ->s.origin)
 		{
-			if (inflictor->s.origin[2] < targ->s.origin[2]) // legs
+			// take armour according to height of hit
+			float p = (point[2] - (targ->s.origin[2] + targ->mins[2])) / (targ->maxs[2] - targ->mins[2]);
+			if (p < 0.475) // legs
 			{
 				random = 2;
 			}
-			else if (inflictor->s.origin[2] > targ->s.origin[2] + targ->viewheight) // head
+			else if (p > 0.85) // head
 			{
 				random = 1;
 			}
@@ -888,15 +548,18 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 				random = 0;
 			}
 		}
-		else if (dflags & DAMAGE_BULLET)
+		// platforms and vertical doors hit head
+		else if (mod == MOD_CRUSH && inflictor->velocity[2])
+			random = 1;
+		else
+		// JOSEPH 21-MAY-99
+		if (mod == MOD_DOGBITE)
 		{
-			random = rand()%100;
-				
-			if (random < 40) // legs
+			if (inflictor->s.origin[2] < targ->s.origin[2]) // legs
 			{
 				random = 2;
 			}
-			else if (random < 60) // head
+			else if (inflictor->s.origin[2] > targ->s.origin[2] + targ->viewheight) // head
 			{
 				random = 1;
 			}
@@ -958,16 +621,12 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 			int takehealth;
 			int takeshield;
 
-          //  cprintf (targ, PRINT_HIGH, "10 brace\n");
-			
 			takehealth = take * takefactor;
 			takeshield = take - takehealth;
 
 			// Ridah, make Flamethrower burn armor away faster than normal
 			if (mod == MOD_FLAMETHROWER)
-            {
-              //  cprintf (targ, PRINT_HIGH, "11 brace\n");
-
+			{
 				if (takeshield < 1)
 					takeshield = 1;
 
@@ -979,8 +638,6 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 			// JOSEPH 5-APR-99
 			if (takeshield <= targ->client->pers.inventory[ index ])
 			{
-              //  cprintf (targ, PRINT_HIGH, "12 brace\n");
-
 				targ->client->pers.inventory[ index ] -= takeshield;
 				take = takehealth;
 				if (!take)
@@ -988,9 +645,7 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 			}
 			else
 			{
-			//	cprintf (targ, PRINT_HIGH, "13 brace\n");
-
-                takehealth = ((take - targ->client->pers.inventory[ index ])+
+				takehealth = ((take - targ->client->pers.inventory[ index ])+
 					          (takefactor*targ->client->pers.inventory[ index ])); 
 				targ->client->pers.inventory[ index ] = 0;
 				take = takehealth;
@@ -1005,20 +660,16 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 	// check for godmode
 	if ( (targ->flags & FL_GODMODE) && !(dflags & DAMAGE_NO_PROTECTION) )
 	{
-       // cprintf (targ, PRINT_HIGH, "14 brace\n");
-
 		take = 0;
 		save = dmg;
-		SpawnDamage (targ, te_sparks, point, normal, save);
+		SpawnDamage (targ, te_sparks, sparkspoint, normal, save);
 	}
 
 	// check for invincibility
 	if ((client && client->invincible_framenum > level.framenum ) && !(dflags & DAMAGE_NO_PROTECTION))
 	{
-       // cprintf (targ, PRINT_HIGH, "15 brace\n");
 		if (targ->pain_debounce_time < level.time)
 		{
-         //   cprintf (targ, PRINT_HIGH, "16 brace\n");
 			// JOSEPH 29-MAR-99
 			//gi.sound(targ, CHAN_ITEM, gi.soundindex("items/protect4.wav"), 1, ATTN_NORM, 0);
 			// END JOSEPH
@@ -1029,9 +680,6 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 	}
 
 	// JOSEPH 1-APR-99
-	//asave = CheckArmor (targ, point, normal, take, te_sparks, dflags);
-	//take -= asave;
-
 	//treat cheat/powerup savings the same as armor
 	asave = 0;
 	asave += save;
@@ -1044,78 +692,43 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 // do the damage
 	if (take)
 	{
-     //  cprintf (targ, PRINT_HIGH, "17 brace\n");
-
 		if (mod == MOD_FLAMETHROWER)
 		{
-          //  cprintf (targ, PRINT_HIGH, "18 brace\n");
 		}
 		else
 		{
-         //   cprintf (targ, PRINT_HIGH, "19 brace\n");
-
 			if ((targ->svflags & SVF_MONSTER) || (client))
-				SpawnDamage (targ, TE_BLOOD, point, normal, take);
+				SpawnDamage (targ, TE_BLOOD, sparkspoint, normal, take);
 			else
-				SpawnDamage (targ, te_sparks, point, normal, take);
+				SpawnDamage (targ, te_sparks, sparkspoint, normal, take);
 		}
 
 		targ->health = targ->health - take;
 
 
-		// Ridah, trigger health threshold events
-		if (targ->health_target && (targ->health < targ->health_threshold))
-		{
-        //    cprintf (targ, PRINT_HIGH, "20 brace\n");
-			CheckHealthTarget( targ, targ->health_target );
-			targ->health_target = NULL;
-		}
-		else if (targ->health_target2 && (targ->health < targ->health_threshold2))
-		{
-		//	cprintf (targ, PRINT_HIGH, "21 brace\n");
-            CheckHealthTarget( targ, targ->health_target2 );
-			targ->health_target2 = NULL;
-		}
-		else if (targ->health_target3 && (targ->health < targ->health_threshold3))
-		{
-         //   cprintf (targ, PRINT_HIGH, "22 brace\n");
-			CheckHealthTarget( targ, targ->health_target3 );
-			targ->health_target3 = NULL;
-		}
-
-		
 		if (targ->health <= 0)
 		{
-			
-          //  cprintf (targ, PRINT_HIGH, "23 brace\n");
-
-            if ((targ->svflags & SVF_MONSTER) || (client))
+			if ((targ->svflags & SVF_MONSTER) || (client))
 			{
-              //  cprintf (targ, PRINT_HIGH, "24 brace\n");
-
 				targ->flags |= FL_NO_KNOCKBACK;
-				M_ReactToDamage (targ, attacker, take);	// Ridah, so our friends seek vengence
 			}
 
 			// JOSEPH 3-MAR-99
 			if (targ->svflags & SVF_MONSTER)
 			{
-             //   cprintf (targ, PRINT_HIGH, "25 brace\n");
 				// targ->solid = SOLID_NOT;			
 				targ->svflags |= SVF_DEADMONSTER;
 				
 				if (mod == MOD_ROCKET)
 				{
-				//    cprintf (targ, PRINT_HIGH, "26 brace\n");
-
-                    targ->s.renderfx2 &= ~RF2_DIR_LIGHTS;
+					targ->s.renderfx2 &= ~RF2_DIR_LIGHTS;
 				}
 			}
 			// END JOSEPH
 
 // Ridah, removed so grenades and rockets can gib bodies
 //			if (!targ->deadflag)
-				Killed (targ, inflictor, attacker, take, point, 0, 0);
+				Killed (targ, inflictor, attacker, take, sparkspoint, 0, 0);
 
 			return;
 		}
@@ -1124,30 +737,18 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 	if (	(targ->svflags & SVF_MONSTER)
 		&&	(targ->health > 0))		// Ridah, 31-may-99, possibly fixes Whore crouching death bug
 	{
-      //  cprintf (targ, PRINT_HIGH, "27 brace\n");
-
-		M_ReactToDamage (targ, attacker, take);
 		if (take)
 		{
-          //  cprintf (targ, PRINT_HIGH, "28 brace\n");
-
 			targ->pain (targ, attacker, knockback, take, 0, 0);
-			// nightmare mode monsters don't go into pain frames often
-			if (skill->value >= 3)
-				targ->pain_debounce_time = level.time + 5;
 		}
 	}
 	else if (client)
 	{
-      //  cprintf (targ, PRINT_HIGH, "29 brace\n");
-
 		if (!(targ->flags & FL_GODMODE) && (take))
 			targ->pain (targ, attacker, knockback, take, 0, 0);
 	}
 	else if (take)
 	{
-       // cprintf (targ, PRINT_HIGH, "30 brace\n");
-
 		if (targ->pain)
 			targ->pain (targ, attacker, knockback, take, 0, 0);
 	}
@@ -1157,20 +758,11 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 	// at the end of the frame
 	if (client)
 	{
-      //  cprintf (targ, PRINT_HIGH, "31 brace\n");
-
 		client->damage_armor += asave;
 		if (mod == MOD_FLAMETHROWER)
-        {
-           // cprintf (targ, PRINT_HIGH, "32 brace\n");
-
 			client->damage_flame += take*4;
-        }
 		else
-        {
-		//	cprintf (targ, PRINT_HIGH, "33 brace\n");
-            client->damage_blood += take;
-        }
+			client->damage_blood += take;
 		client->damage_knockback += knockback;
 		VectorCopy (point, client->damage_from);
 	}
@@ -1209,7 +801,7 @@ void SpawnPartShotOff (edict_t *self, int mdx_part, vec3_t dir)
 			model = gi.modelindex("models/props/cap/cap.mdx");
 			// hat bug
 			self->count &= ~8; 
-	}
+		}
 	}
 
 	skin = self->s.model_parts[mdx_part].baseskin;
@@ -1334,9 +926,8 @@ void SpawnGib (edict_t *self, int mdx_part, int mdx_subobject, vec3_t dir)
 {
 	edict_t *gib;
 	int		i;
-	vec3_t	forward, right, up, angles;
+	vec3_t	forward, right, up;
 	char gibname[1024];
-	float	vel;
 	int		max_rnd;
 
 	gi.sound(self, CHAN_VOICE, gi.soundindex("actors/player/bodyfalls/jibs.wav"), 1, ATTN_NORM, 0);
@@ -1392,7 +983,7 @@ void SpawnGib (edict_t *self, int mdx_part, int mdx_subobject, vec3_t dir)
 	VectorMA (gib->s.origin, (gib->mins[2] + gib->maxs[2]) * 0.5, up, gib->s.origin);
 
 
-	if (deathmatch->value)	// do client-side gibs in deathmatch
+	// do client-side gibs in deathmatch
 	{
 		gib->s.origin[2] += 10;
 
@@ -1407,78 +998,6 @@ void SpawnGib (edict_t *self, int mdx_part, int mdx_subobject, vec3_t dir)
 		gi.multicast (self->s.origin, MULTICAST_PVS);
 
 		G_FreeEdict( gib );
-
-		return;
-	}
-
-	vel = (float) ((rand()%512) + 128);
-
-	vectoangles (dir, angles);
-	AngleVectors (angles, forward, NULL, NULL);
-
-	// Ridah, only fly off if not lying on ground
-	if (self->cast_info.currentmove && self->svflags & SVF_MONSTER && self->cast_info.currentmove->endfunc != AI_EndDeath)
-	{
-		VectorScale (forward, vel, gib->velocity);
-		gib->velocity[2] += (float)(rand()%256) + 120;
-	}
-	else
-	{
-		gib->velocity[0] = (float)(rand()%60) - 30;
-		gib->velocity[1] = (float)(rand()%60) - 30;
-		gib->velocity[2] += (float)(rand()%256) + 120;
-	}
-
-	VectorSet (gib->avelocity, 300*random(), 300*random(), 300*random());
-
-	VectorSet (gib->mins, -4, -4, -2);
-	VectorSet (gib->maxs, 4, 4, 2);
-
-	gib->think = gib_end_life;
-	gib->nextthink = level.time + 0.1;
-
-	gi.linkentity (gib);
-
-	// Ridah, optimized this to prevent SZ_GetSpace() overrun's
-	{
-		static float	last_blood;
-
-		// JOSEPH 12-MAY-99-B
-		if (last_blood != level.time)
-		{
-
-			gi.WriteByte (svc_temp_entity);
-			gi.WriteByte (TE_SPLASH);
-			gi.WriteByte (25);
-			gi.WritePosition (gib->s.origin);
-			gi.WriteDir (up);
-			gi.WriteByte (6);
-			gi.multicast (gib->s.origin, MULTICAST_PVS);
-
-			last_blood = level.time;
-		}
-		// END JOSEPH
-	}
-
-	// Spawn some blood on the wall close by
-	for (i=0; i<1; i++)
-	{
-		trace_t tr;
-		vec3_t	end;
-
-		VectorCopy (gib->s.origin, end);
-		VectorAdd( end, tv((random()-0.5)*48, (random()-0.5)*48, -16 - (random())*16), end );
-
-		tr = gi.trace (gib->s.origin, NULL, NULL, end, gib, MASK_SOLID);
-
-		if ((tr.fraction < 1 && tr.ent == &g_edicts[0]) || !(tr.surface->flags & SURF_SKY))
-		{
-			float rnd;
-
-			rnd = (1.5 + 3.2*random());
-			SurfaceSpriteEffect(SFX_SPRITE_SURF_BLOOD1, (unsigned char)(SFX_BLOOD_WIDTH*rnd), (unsigned char)(SFX_BLOOD_HEIGHT*rnd),
-								tr.ent, tr.endpos, tr.plane.normal);
-		}
 	}
 }
 
@@ -1496,9 +1015,6 @@ void SpawnGibShotOff (edict_t *self, int mdx_part, int mdx_subobject, vec3_t dir
 	if (self->gender != GENDER_MALE && self->gender != GENDER_FEMALE)
 		return;
 
-	if (cl_parental_lock->value && !cl_parental_override->value)
-		return;
-
 //gi.dprintf( "shot ent: %i, part %i, object %i\n", (int)(self-g_edicts), mdx_part, mdx_subobject );
 
 	// ok the head got shot off so spawn in the standin
@@ -1506,7 +1022,7 @@ void SpawnGibShotOff (edict_t *self, int mdx_part, int mdx_subobject, vec3_t dir
 	{
 		numgibs = GIBS_HEAD;
 
-		if (deathmatch->value)
+		if (deathmatch_value)
 			numgibs /= 2;
 
 		self->s.model_parts[mdx_part].invisible_objects = (1<<0 | 1<<1);
@@ -1542,7 +1058,7 @@ void SpawnGibShotOff (edict_t *self, int mdx_part, int mdx_subobject, vec3_t dir
 			{
 				numgibs = GIBS_BODY;
 
-				if (deathmatch->value)
+				if (deathmatch_value)
 					numgibs /= 2;
 
 				for (i=0; i<numgibs; i++)
@@ -1576,7 +1092,7 @@ void SpawnGibShotOff (edict_t *self, int mdx_part, int mdx_subobject, vec3_t dir
 				numgibs = GIBS_ARMS;
 
 
-			if (deathmatch->value)
+			if (deathmatch_value)
 				numgibs /= 2;
 
 			// Ridah, increased this, we really need lots of gibs, and since they disappear pretty quick, and
@@ -1597,7 +1113,7 @@ void SpawnGibShotOff (edict_t *self, int mdx_part, int mdx_subobject, vec3_t dir
 			else
 				numgibs = GIBS_ARMS;
 
-			if (deathmatch->value)
+			if (deathmatch_value)
 				numgibs /= 2;
 
 			for (i=0; i<numgibs; i++)
@@ -1688,7 +1204,7 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 	int			te_sparks;
 	qboolean	hasarmor = false;
 
-	hit=0;
+	hit = 0;
 
 	if (!targ->takedamage)
 		return;
@@ -1701,7 +1217,7 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 	// friendly fire avoidance
 	// if enabled you can't hurt teammates (but you can hurt yourself)
 	// knockback still occurs
-	if (!(dflags & DAMAGE_NO_PROTECTION) && (targ != attacker) && ((deathmatch->value && (teamplay->value || ((int)(dmflags->value) & (DF_MODELTEAMS/*| DF_SKINTEAMS*/))) /*|| coop->value*/)))
+	if (!(dflags & DAMAGE_NO_PROTECTION) && (targ != attacker) && ((deathmatch_value && (teamplay->value || ((int)(dmflags->value) & (DF_MODELTEAMS/*| DF_SKINTEAMS*/))) /*|| coop->value*/)))
 	{
 		if ((OnSameTeam (targ, attacker)) && (!targ->client->pers.friendly_vulnerable))
 		{
@@ -1712,23 +1228,12 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 			else
 				mod |= MOD_FRIENDLY_FIRE;
 		} else if (attacker->client && !targ->deadflag)
-			hit=1;
-	} else if (attacker->client && !targ->deadflag && targ!=attacker)
-		hit=1;
+			hit = 1;
+	} else if (attacker->client && !targ->deadflag && targ != attacker)
+		hit = 1;
 	meansOfDeath = mod;
 
-	// easy mode takes half damage
-	if (deathmatch->value == 0 && targ->client)
-	{
-		if (skill->value == 0)
-			damage *= 0.1;		// used to be 50%, so we have to make it 10% to be 1/5 of what it was before
-		else if (skill->value == 1)
-			damage *= 0.6;
-
-		if (!damage)
-			damage = 1;
-	}
-	else if (deathmatch->value && dm_realmode->value && attacker != targ && attacker->client)
+	if (dm_realmode->value && dm_realmode->value != 2 && attacker != targ && attacker->client)
 	{
 		damage *= 4;
 	}
@@ -1767,7 +1272,7 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 				mass = targ->mass;
 
 			// JOSEPH 13-MAY-99
-			if ((targ->client  && attacker == targ) && deathmatch->value)
+			if ((targ->client  && attacker == targ) && deathmatch_value)
 				VectorScale (dir, 1600.0 * (float)knockback / mass, kvel);	// the rocket jump hack...
 			else if (targ->client  && attacker == targ)
 				VectorScale (dir, 128.0 * (float)knockback / mass, kvel);
@@ -1804,9 +1309,6 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 	}
 
 	// JOSEPH 1-APR-99
-	//asave = CheckArmor (targ, point, normal, take, te_sparks, dflags);
-	//take -= asave;
-
 	//treat cheat/powerup savings the same as armor
 	asave = 0;
 	asave += save;
@@ -1821,7 +1323,7 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 	{
 		
 		// JOSEPH 2-APR-99
-		if (!deathmatch->value || dm_locational_damage->value)
+		if (!deathmatch_value || dm_locational_damage->value)
 		{
 			int     index;
 			gitem_t *item = NULL;
@@ -1842,18 +1344,12 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 					}
 				
 					takeshield = (take * (1.0 - takefactor));
-					if (deathmatch->value)
-						take *= 1.5;
-					else if (skill->value < 3)		// FIXME? note to Rafael/Joeseph: why does it add more damage if lower skill level?
-						take *= 3;					
+					take *= 1.5;
 					takehealth = take * takefactor;
 				}
 				else
 				{
-					if (deathmatch->value)
-						take *= 1.5;			// Ridah, scaled this down, since it gives people with low pings an un-fair advantage
-					else if (skill->value < 3)
-						take *= 3;
+					take *= 1.5;			// Ridah, scaled this down, since it gives people with low pings an un-fair advantage
 				}	
 			}
 			else if (mdx_part == PART_LEGS)
@@ -1871,13 +1367,6 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 					takeshield = (take * (1.0 - takefactor));
 					takehealth = take * takefactor;
 				}	
-				else
-				{
-					if (deathmatch->value)
-						take *= 1.0;
-					else if (skill->value < 3)
-						take *= 1.25;
-				}
 			}
 			else if (mdx_part == PART_BODY)
 			{
@@ -1893,18 +1382,12 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 
 				
 					takeshield = (take * (1.0 - takefactor));
-					if (deathmatch->value)
-						take *= 1.5;
-					else if (skill->value < 3)
-						take *= 2;			
+					take *= 1.5;
 					takehealth = take * takefactor;				
 				}
 				else
 				{
-					if (deathmatch->value)
-						take *= 1.5;
-					else if (skill->value < 3)
-						take *= 2;
+					take *= 1.5;
 				}
 			}
 			else if (mdx_part == PART_CIGAR || mdx_part == PART_HAT)
@@ -1951,7 +1434,7 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 				{
 
 					// Ridah, this is a major bandwidth hog, need to make client-side, like gibs
-					if (!deathmatch->value)
+					if (!deathmatch_value)
 					{
 						ThrowShard (targ, "models/props/glass/glass2.md2", 4, point);
 						ThrowShard (targ, "models/props/glass/glass2.md2", 4, point);
@@ -1966,11 +1449,11 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 						rval = rand();
 						
 						if (rval > 66)
-							gi.sound(targ, CHAN_VOICE, gi.soundindex("weapons/bullethit_armor1.wav"), 1, ATTN_NORM, 0);
+							gi.sound(targ, CHAN_BULLET, gi.soundindex("weapons/bullethit_armor1.wav"), 1, ATTN_NORM, 0);
 						else if (rval > 33)
-							gi.sound(targ, CHAN_VOICE, gi.soundindex("weapons/bullethit_armor2.wav"), 1, ATTN_NORM, 0);
+							gi.sound(targ, CHAN_BULLET, gi.soundindex("weapons/bullethit_armor2.wav"), 1, ATTN_NORM, 0);
 						else
-							gi.sound(targ, CHAN_VOICE, gi.soundindex("weapons/bullethit_armor3.wav"), 1, ATTN_NORM, 0);
+							gi.sound(targ, CHAN_BULLET, gi.soundindex("weapons/bullethit_armor3.wav"), 1, ATTN_NORM, 0);
 					}
 
 				}
@@ -1983,30 +1466,13 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 
 		targ->health = targ->health - take;
 
-		// Ridah, trigger health threshold events
-		if (targ->health_target && (targ->health < targ->health_threshold))
-		{
-			CheckHealthTarget( targ, targ->health_target );
-			targ->health_target = NULL;
-		}
-		else if (targ->health_target2 && (targ->health < targ->health_threshold2))
-		{
-			CheckHealthTarget( targ, targ->health_target2 );
-			targ->health_target2 = NULL;
-		}
-		else if (targ->health_target3 && (targ->health < targ->health_threshold3))
-		{
-			CheckHealthTarget( targ, targ->health_target3 );
-			targ->health_target3 = NULL;
-		}
-
 		// gi.dprintf ("health %d\n", targ->health);
 
 		if ((mod != MOD_BLACKJACK) && (mod != MOD_CROWBAR))
 		{
 			if (targ->health <= targ->gib_health && targ->gender != GENDER_NONE && mdx_part <= PART_BODY)
 			{
-				if (!deathmatch->value)
+				if (!deathmatch_value)
 				{
 					SpawnGibShotOff (targ, mdx_part, mdx_subobject, dir);
 				}
@@ -2041,31 +1507,11 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 			
 		}
 
-		// Ridah, don't show pain skins if hit by melee weapon
-		//if ((mod != MOD_BLACKJACK) && (mod != MOD_CROWBAR))
-		if (targ->art_skins && (!(cl_parental_lock->value) || cl_parental_override->value))
-		{
-			int baseskin;//, currentskin;
-			
-			baseskin = targ->s.model_parts[mdx_part].baseskin;
-			//currentskin = targ->s.model_parts[mdx_part].skinnum[mdx_subobject];
-						
-			if (targ->health < (targ->max_health * 0.5))
-			{
-				targ->s.model_parts[mdx_part].skinnum[mdx_subobject] =  baseskin + 2;
-			}
-			else if (targ->health < (targ->max_health * 0.75))
-			{
-				targ->s.model_parts[mdx_part].skinnum[mdx_subobject] =  baseskin + 1;
-			}
-		}
-			
 		if (targ->health <= 0)
 		{
 			if ((targ->svflags & SVF_MONSTER) || (client))
 			{
 				targ->flags |= FL_NO_KNOCKBACK;
-				M_ReactToDamage (targ, attacker, take);	// Ridah, so our friends seek vengence
 			}
 
 			// JOSEPH 3-MAR-99
@@ -2092,13 +1538,9 @@ void T_DamageMDX (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t d
 	if (	(targ->svflags & SVF_MONSTER)
 		&&	(targ->health > 0))		// Ridah, 31-may-99, possibly fixes Whore crouching death bug
 	{
-		M_ReactToDamage (targ, attacker, take);
 		if (take)
 		{
 			targ->pain (targ, attacker, knockback, take, mdx_part, mdx_subobject);
-			// nightmare mode monsters don't go into pain frames often
-			if (skill->value >= 3)
-				targ->pain_debounce_time = level.time + 5;
 		}
 	}
 	else if (client)
@@ -2201,7 +1643,7 @@ void T_RadiusDamage (edict_t *inflictor, edict_t *attacker, float damage, edict_
 							else
 							{
 								Voice_Specific (ent, attacker, female_specific, 6);
-							}							*/
+							}*/
 							Voice_Specific (ent, attacker, female_specific, 8);
 						}
 						else if (ent->gender == GENDER_MALE)
@@ -2217,13 +1659,12 @@ void T_RadiusDamage (edict_t *inflictor, edict_t *attacker, float damage, edict_
 							else
 							{
 								Voice_Specific (ent, attacker, male_specific, 10);
-							}					*/
+							}*/
 							Voice_Specific (ent, attacker, male_specific, 12);
 						}
 						
 						if (ent->svflags & SVF_MONSTER)
 							ent->cast_info.aiflags |= AI_NO_TALK;
-//						if (deathmatch->value)
 						{	// play the sound on different channels so it's less likely to get over-written
 							if (ent->last_talk_time == level.time && ent->last_voice->soundindex)
 							{
@@ -2245,7 +1686,7 @@ void T_RadiusDamage (edict_t *inflictor, edict_t *attacker, float damage, edict_
 						else
 							ent->onfireent = NULL;
 
-						if (deathmatch->value && (ent->pain_debounce_time < (level.time+3)))
+						if (deathmatch_value && (ent->pain_debounce_time < (level.time+3)))
 						{
 							if (ent->gender == GENDER_FEMALE)
 							{
@@ -2280,7 +1721,7 @@ void T_RadiusDamage (edict_t *inflictor, edict_t *attacker, float damage, edict_
 								Voice_Specific (ent, attacker, male_specific, 12);
 							}
 	
-							if (deathmatch->value)
+							if (deathmatch_value)
 							{	// play the sound on different channels so it's less likely to get over-written
 								if (ent->last_talk_time == level.time && ent->last_voice->soundindex)
 								{
@@ -2301,7 +1742,7 @@ void T_RadiusDamage (edict_t *inflictor, edict_t *attacker, float damage, edict_
 							ent->onfiretime = 25;
 
 							// Ridah, in Deathmatch, you should be rewarded for flaming them, not so much just setting them on fire and waiting for them to burn to death
-							if (deathmatch->value)
+							if (deathmatch_value)
 							{
 								ent->onfiretime = 10;
 								T_Damage (ent, inflictor, attacker, dir, inflictor->s.origin, vec3_origin, (int)points, (int)points, DAMAGE_RADIUS, mod);
@@ -2318,7 +1759,7 @@ void T_RadiusDamage (edict_t *inflictor, edict_t *attacker, float damage, edict_
 					}
 					else
 					{
-						ent->onfiretime -= (int) (3.0 * (1.0 - VectorLength (v)/radius) * (float)((deathmatch->value!=0)*2 + 1));
+						ent->onfiretime -= (int) (3.0 * (1.0 - VectorLength (v)/radius) * (float)((deathmatch_value!=0)*2 + 1));
 					}
 				}
 				else	// do the damage as normal

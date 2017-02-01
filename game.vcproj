@@ -45,7 +45,6 @@
 				PreprocessorDefinitions="WIN32;NDEBUG"
 				StringPooling="true"
 				RuntimeLibrary="2"
-				BufferSecurityCheck="false"
 				FloatingPointModel="2"
 				RuntimeTypeInfo="false"
 				DebugInformationFormat="3"
@@ -61,7 +60,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="navlib\navlib.lib winmm.lib"
+				AdditionalDependencies="navlib\navlib.lib winmm.lib msvcrt_winxp.obj"
 				OutputFile="$(OutDir)\gamex86.dll"
 				AdditionalLibraryDirectories=""
 				GenerateManifest="false"
@@ -104,95 +103,11 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\ai_bitch.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_bum_sit.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_dog.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_punk.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_runt.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_shorty.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_thug.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_thug_sit.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_whore.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_all.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_crystalpalace.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_log.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_posionville.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_radiocity.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_shipyards.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_skidrow.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_steeltown.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_trainyard.c"
-				>
-			</File>
-			<File
 				RelativePath=".\file.c"
 				>
 			</File>
 			<File
 				RelativePath=".\g_ai.c"
-				>
-			</File>
-			<File
-				RelativePath=".\g_ai_ents.c"
-				>
-			</File>
-			<File
-				RelativePath=".\g_ai_fight.c"
-				>
-			</File>
-			<File
-				RelativePath=".\g_ai_memory.c"
 				>
 			</File>
 			<File
@@ -229,10 +144,6 @@
 			</File>
 			<File
 				RelativePath=".\g_misc.c"
-				>
-			</File>
-			<File
-				RelativePath=".\g_pawn.c"
 				>
 			</File>
 			<File
@@ -304,6 +215,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\unlagged.c"
+				>
+			</File>
+			<File
 				RelativePath=".\vehicles.c"
 				>
 			</File>
@@ -325,82 +240,6 @@
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
-			<File
-				RelativePath=".\ai_bitch.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_bitch_tables.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_bum_sit.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_dog.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_dog_tables.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_punk.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_punk_tables.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_runt.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_runt_tables.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_shorty.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_shorty_tables.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_thug.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_thug2.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_thug2_tables.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_thug_tables.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_whore.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ai_whore_tables.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_all.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ep_log.h"
-				>
-			</File>
 			<File
 				RelativePath=".\file.h"
 				>
@@ -463,6 +302,10 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
+			<File
+				RelativePath=".\game.rc"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Config Files"
@@ -480,6 +323,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\config\maps_bm.txt"
+				>
+			</File>
+			<File
 				RelativePath=".\config\names.txt"
 				>
 			</File>
@@ -487,13 +334,13 @@
 				RelativePath=".\config\rcons.txt"
 				>
 			</File>
+			<File
+				RelativePath=".\config\server.cfg"
+				>
+			</File>
 		</Filter>
 		<File
-			RelativePath=".\history.txt"
-			>
-		</File>
-		<File
-			RelativePath=".\install.txt"
+			RelativePath=".\mmod.txt"
 			>
 		</File>
 	</Files>

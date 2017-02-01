@@ -41,6 +41,8 @@ void Use_Target_Speaker (edict_t *ent, edict_t *other, edict_t *activator)
 {
 	int		chan;
 
+	if (level.intermissiontime) return;
+
 	if (ent->spawnflags & 3)
 	{	// looping sound toggles
 		if (ent->s.sound)
@@ -113,7 +115,7 @@ When fired, the "message" key becomes the current personal computer string, and 
 */
 void SP_target_help(edict_t *ent)
 {
-	if (deathmatch->value)
+	if (deathmatch_value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (ent);
 		return;
@@ -127,7 +129,7 @@ void SP_target_help(edict_t *ent)
 	}
 	ent->use = Use_Target_Help;
 }
-#endif
+
 
 //==========================================================
 
@@ -147,7 +149,7 @@ void use_target_secret (edict_t *ent, edict_t *other, edict_t *activator)
 
 void SP_target_secret (edict_t *ent)
 {
-	if (deathmatch->value)
+	if (deathmatch_value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (ent);
 		return;
@@ -185,7 +187,7 @@ void use_target_goal (edict_t *ent, edict_t *other, edict_t *activator)
 
 void SP_target_goal (edict_t *ent)
 {
-	if (deathmatch->value)
+	if (deathmatch_value)
 	{	// auto-remove for deathmatch
 		G_FreeEdict (ent);
 		return;
@@ -198,7 +200,7 @@ void SP_target_goal (edict_t *ent)
 	ent->svflags = SVF_NOCLIENT;
 	level.total_goals++;
 }
-
+#endif
 //==========================================================
 
 // JOSEPH 23-FEB-99
@@ -637,34 +639,20 @@ void SP_target_fire (edict_t *self)
 Changes level to "map" when fired
 */
 
-extern qboolean	changing_levels;
-
-// Ridah 5-8-99
-extern char	last_changelevel[];
-
 void use_target_changelevel (edict_t *self, edict_t *other, edict_t *activator)
 {
-	int	i, j, k;
-	edict_t	*e;
-
 	if (level.intermissiontime)
 		return;		// already activated
 
-	if (!deathmatch->value && !coop->value)
-	{
-		if (g_edicts[1].health <= 0)
-			return;
-	}
-
 	// if noexit, do a ton of damage to other
-	if (deathmatch->value && !( (int)dmflags->value & DF_ALLOW_EXIT) && other != world)
+	if (deathmatch_value && !( (int)dmflags->value & DF_ALLOW_EXIT) && other != world)
 	{
 		T_Damage (other, self, self, vec3_origin, other->s.origin, vec3_origin, 10 * other->max_health, 1000, 0, MOD_EXIT);
 		return;
 	}
 
 	// if multiplayer, let everyone know who hit the exit
-	if (deathmatch->value)
+	if (deathmatch_value)
 	{
 		if (activator && activator->client)
 			gi.bprintf (PRINT_HIGH, "%s exited the level.\n", activator->client->pers.netname);
@@ -673,9 +661,6 @@ void use_target_changelevel (edict_t *self, edict_t *other, edict_t *activator)
 	// if going to a new unit, clear cross triggers
 	if (strstr(self->map, "*"))	
 		game.serverflags &= ~(SFL_CROSS_TRIGGER_MASK);
-
-	// Ridah, 5-8-99, save this mapname for "pawn_" checking
-	strcpy( last_changelevel, level.mapname );
 
 	// Ridah, copy the episode_flags over
 	if (activator->client)
@@ -694,74 +679,7 @@ void use_target_changelevel (edict_t *self, edict_t *other, edict_t *activator)
 		}
 	}
 
-if (!deathmatch->value)
-{
-	
-	// Ridah, save any followers temporarily so we can carry them through to the next level
-	changing_levels = true;
-
-	// Ridah, 7-5-99, prevent friendly's following into pawn-o-matic
-	if (strstr( self->map, "pawn" ) != self->map)
-	{
-		for (i=0; i<level.num_characters; i++)
-		{
-			if (!level.characters[i])
-				continue;
-
-			e = level.characters[i];
-
-			if (!e || e->client || e->health <= 0)
-				continue;
-
-			if (!e->leader)
-				continue;
-
-			if (e->leader != activator)
-				continue;
-
-			if (VectorDistance( e->s.origin, activator->s.origin ) > 512)
-				continue;
-
-			// mark them as followers
-			e->flags |= FL_FOLLOWING;
-
-			// save this dude
-			strcpy( followers[num_followers].classname, e->classname );
-			if (e->name)
-				strcpy( followers[num_followers].name, e->name );
-			else
-				memset( followers[num_followers].name, 0, sizeof(followers[num_followers].name) );
-
-			if (e->art_skins)
-				strcpy( followers[num_followers].art_skins, e->art_skins );
-			else
-				memset( followers[num_followers].art_skins, 0, sizeof(followers[num_followers].art_skins) );
-
-			followers[num_followers].health = e->health;
-			followers[num_followers].max_health = e->max_health;
-			followers[num_followers].head = e->head;
-			followers[num_followers].scale = e->cast_info.scale;
-			followers[num_followers].spawnflags = e->spawnflags;
-			followers[num_followers].count = e->count;	// for the Runt
-
-			for (j=0; j<e->s.num_parts; j++)
-			{
-				for (k=0; k<MAX_MODELPART_OBJECTS; k++)
-				{
-					followers[num_followers].skinofs[j][k] = ((int)e->s.model_parts[j].skinnum[k]) - e->s.model_parts[j].baseskin;
-				}
-			}
-
-			num_followers++;
-
-			if (num_followers > MAX_FOLLOWERS)
-				break;
-		}
-	}
-	
-}
-
-	BeginIntermission (self, self->map);
+	BeginIntermission (self);
 }
 
 void SP_target_changelevel (edict_t *ent)
@@ -772,10 +690,6 @@ void SP_target_changelevel (edict_t *ent)
 		G_FreeEdict (ent);
 		return;
 	}
-
-	// ugly hack because *SOMEBODY* screwed up their map
-//   if((Q_stricmp(level.mapname, "fact1") == 0) && (Q_stricmp(ent->map, "fact3") == 0))
-//	   ent->map = "fact3$secret1";
 
 	ent->use = use_target_changelevel;
 	ent->svflags = SVF_NOCLIENT;
@@ -1405,7 +1319,7 @@ void SP_target_lightramp (edict_t *self)
 		return;
 	}
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 	{
 		G_FreeEdict (self);
 		return;

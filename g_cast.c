@@ -654,6 +654,7 @@ void M_MoveFrame (edict_t *self)
 		move->frame[index].thinkfunc (self);
 }
 
+#if 0	// single player stuff
 // thug2 HACK
 extern mmove_t thug2_move_ambstand1;
 extern void thug2_stand_up( edict_t *self );
@@ -950,7 +951,7 @@ void cast_death_use (edict_t *self)
 
 qboolean cast_start (edict_t *self)
 {
-	if (deathmatch->value)
+	if (deathmatch_value)
 	{
 		G_FreeEdict (self);
 		return false;
@@ -1286,3 +1287,4 @@ qboolean DeathByGib( edict_t *self, edict_t *inflictor, edict_t *attacker, float
 		return (damage >= 50);
 	}
 }
+#endif

@@ -536,31 +536,6 @@ qboolean SV_Push (edict_t *pusher, vec3_t move, vec3_t amove)
 
 		if ((pusher->movetype == MOVETYPE_PUSH) || (check->groundentity == pusher))
 		{
-			// move to a visible node
-			if ((check->svflags & SVF_MONSTER) && !check->goal_ent)
-			{
-				extern void AI_FreeAndClearGoalEnt( edict_t *self );
-				node_t *node;
-
-				if (node = NAV_GetClosestNode( check, VIS_PARTIAL, false, false ))
-				{
-					check->goal_ent = G_Spawn();
-					check->goal_ent->owner = check;
-
-					VectorCopy( node->origin, check->goal_ent->s.origin );
-
-					check->goal_ent->think = AI_FreeAndClearGoalEnt;
-					check->goal_ent->nextthink = level.time + 3;
-					check->goal_ent->dmg_radius = 0;		// get real close to it
-
-					if (check->cast_info.move_runwalk)
-						check->cast_info.currentmove = check->cast_info.move_runwalk;
-					else
-						check->cast_info.currentmove = check->cast_info.move_run;
-
-				}
-			}
-
 			// move this entity
 			pushed_p->ent = check;
 			VectorCopy (check->s.origin, pushed_p->origin);
@@ -802,6 +777,7 @@ void SV_Physics_Toss (edict_t *ent)
 
 // regular thinking
 	SV_RunThink (ent);
+	if (!ent->inuse) return; // got freed during think
 
 	// if not a team captain, so movement will be handled elsewhere
 	if ( ent->flags & FL_TEAMSLAVE)
@@ -858,7 +834,27 @@ void SV_Physics_Toss (edict_t *ent)
 	VectorMA (ent->s.angles, FRAMETIME, ent->avelocity, ent->s.angles);
 
 // move origin
-	VectorScale (ent->velocity, FRAMETIME, move);
+	if (ent->movetype == MOVETYPE_FLYMISSILE && ent->launch_delay)
+	{
+		// account for launch delay by fast-forwarding
+		int t = ent->launch_delay;
+		if (t > 100) t = 100; // limit fast-forwarding to 2x normal speed
+		ent->launch_delay -= t;
+		VectorScale (ent->velocity, FRAMETIME + t / 1000.f, move);
+		{
+			trace_t	trace;
+			vec3_t	end;
+			VectorAdd (ent->s.origin, move, end);
+			trace = gi.trace (ent->s.origin, ent->mins, ent->maxs, end, ent, ent->clipmask);
+			if (trace.fraction < 1)
+			{
+				// return to normal speed before hitting anything
+				ent->launch_delay = 0;
+				VectorScale (ent->velocity, FRAMETIME, move);
+			}
+		}
+	} else
+		VectorScale (ent->velocity, FRAMETIME, move);
 	trace = SV_PushEntity (ent, move);
 	if (!ent->inuse)
 		return;
@@ -1086,9 +1082,10 @@ void SV_Physics_Step (edict_t *ent)
 			if (!(ent->health <= 0.0 && !M_CheckBottom(ent)))
 			{
 				vel = ent->velocity;
-				speed = sqrt(vel[0]*vel[0] +vel[1]*vel[1]);
+				speed = vel[0]*vel[0] +vel[1]*vel[1];
 				if (speed)
 				{
+					speed = sqrt(speed);
 					friction = sv_friction;
 
 					control = speed < sv_stopspeed ? sv_stopspeed : speed;

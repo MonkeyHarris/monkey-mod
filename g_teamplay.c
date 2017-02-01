@@ -2,12 +2,7 @@
 // g_teamplay.c - teamplay oriented code
 
 #include "g_local.h"
-//#include "stdlog.h"	// Standard Logging
-//#include "gslog.h"	// Standard Logging
 
-
-// current teamplay mode (set by "level.style")
-teamplay_mode_t	teamplay_mode;
 
 #define	CASH_ROLL			10
 #define	CASH_BAG			25
@@ -22,8 +17,6 @@ char *team_names[] = {
 	NULL
 };
 
-char *dragonsafe = "Dragons' Safe";
-char *nikkisafe = "Nikki's Boyz's Safe";
 
 int	team_cash[3];	// cash per team, 0 is neutral so just ignore
 
@@ -133,7 +126,7 @@ void cashspawn_think( edict_t *self )
 {
 	edict_t	*cash;
 
-	if ((num_cash_items > MAX_CASH_ITEMS) || (level.modeset == MATCHSETUP) || (level.modeset == FINALCOUNT) || (level.modeset == FREEFORALL))
+	if ((num_cash_items > MAX_CASH_ITEMS) || (level.modeset == MATCHSETUP) || (level.modeset == MATCHCOUNT) || (level.modeset == PREGAME))
 	{
 		self->nextthink = level.time + self->delay;
 		return;
@@ -211,11 +204,9 @@ Spawn location for cash during "Grab da Loot" games
 */
 void SP_dm_cashspawn( edict_t *self )
 {
-	if (!teamplay->value || ((int)teamplay->value != TM_AUTO && (int)teamplay->value != TM_GRABDALOOT))
+	if ((int)teamplay->value != 1)
 		return;
 
-	// set the game to "Grab da Loot"
-	teamplay_mode = TM_GRABDALOOT;
 	num_cash_items = 0;
 
 	if (!strcmp(self->type, "cashroll"))
@@ -271,7 +262,12 @@ void safebag_touch( edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 
 	last_touch_ent = other;
 
-	if (self->timestamp > (level.time - 1.0))
+	if (other->client->pers.team == self->style)
+	{
+		if (self->timestamp > (level.time - 0.5))
+			return;
+	}
+	else if (self->timestamp > (level.time - 1.0))
 		return;
 
 	self->timestamp = level.time;
@@ -289,7 +285,7 @@ void safebag_touch( edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 
 			team_cash[self->style] += other->client->pers.currentcash;
 			team_cash[self->style] += other->client->pers.bagcash;
-			UPDATESCORE
+			UpdateScore();
 
 			other->client->resp.deposited += other->client->pers.currentcash;
 			other->client->resp.deposited += other->client->pers.bagcash;
@@ -305,7 +301,7 @@ void safebag_touch( edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 			// let everyone know how much was deposited
 			amount = team_cash[self->style] - precash;
 			gi.bprintf( PRINT_MEDIUM, "%s deposited $%i\n", other->client->pers.netname, amount );
-            other->client->fakeThief = 0;
+			other->client->fakeThief = 0;
 
 			last_safe_deposit[self->style] = level.time;
 		}
@@ -314,7 +310,7 @@ void safebag_touch( edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 	else if (team_cash[self->style] > 0)
 	{	// withdrawal
 
-        if (other->client->pers.bagcash < MAX_BAGCASH_PLAYER)
+		if (other->client->pers.bagcash < MAX_BAGCASH_PLAYER)
 		{
 			int	precash, amount;
 
@@ -328,7 +324,7 @@ void safebag_touch( edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 				other->client->pers.bagcash += team_cash[self->style];
 				team_cash[self->style] = 0;
 			}
-			UPDATESCORE
+			UpdateScore();
 
 			gi.sound(other, CHAN_ITEM, gi.soundindex("world/pickups/cash.wav"), 1, 3, 0);
 
@@ -341,7 +337,7 @@ void safebag_touch( edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 
 			last_safe_withdrawal[self->style] = level.time;
 
-			other->client->resp.acchit+=amount;
+			other->client->resp.stole += amount;
 		}
 
 	}
@@ -377,6 +373,7 @@ void safebag_think(edict_t *self)
 			continue;
 
 		noenemies = false;
+		break;
 	}
 
 	for (i=0; i<maxclients->value; i++)
@@ -438,11 +435,6 @@ void SP_dm_safebag( edict_t *self )
 		return;
 	}
 
-/*	if (self->style == 1)
-		strcpy (self->classname, dragonsafe);
-	else if (self->style == 2)
-		strcpy (self->classname, nikkisafe);
-	else*/
 	if (self->style < 1 || self->style > 2)
 	{
 		gi.dprintf( "dm_safebag has invalid \"style\" at %s, should be 1 or 2.\n", vtos(self->s.origin));
@@ -482,7 +474,7 @@ void SP_dm_props_banner (edict_t *self)
 //	int	x,y;
 //	trace_t tr;
 
-	if (!deathmatch->value || !teamplay->value)
+	if (!deathmatch_value || !teamplay->value)
 	{	// remove
 		G_FreeEdict (self);
 		return;
@@ -630,26 +622,19 @@ qboolean Teamplay_ValidateJoinTeam( edict_t *self, int teamindex )
 	// TODO: player limit per team? cvar?
 
 
-	// setup client stuff
 	Teamplay_ValidateSkin( self );
 
 //	InitClientPersistant (self->client);
 
 	self->client->pers.team = teamindex;
 	self->client->pers.spectator = PLAYING;
-	if ((level.modeset != STARTINGMATCH) && (level.modeset != STARTINGPUB))
+	if ((level.modeset != MATCHSPAWN) && (level.modeset != PUBLICSPAWN))
 	{
 		gi.bprintf( PRINT_HIGH, "%s joined %s\n", self->client->pers.netname, team_names[teamindex] );
-//		sl_WriteStdLogPlayerEntered( &gi, level, self );	// Standard Logging
 	}
 
-	if ((level.modeset == TEAMPLAY) || (level.modeset == MATCH) || (level.modeset == STARTINGMATCH) || (level.modeset == STARTINGPUB))
+	if ((level.modeset == PUBLIC) || (level.modeset == MATCH) || (level.modeset == MATCHSPAWN) || (level.modeset == PUBLICSPAWN))
 	{
-		self->movetype = MOVETYPE_WALK;
-		self->solid = SOLID_BBOX;
-		self->svflags &= ~SVF_NOCLIENT;
-
-
 /*
 	// Validate skins
 	{
@@ -659,13 +644,8 @@ qboolean Teamplay_ValidateJoinTeam( edict_t *self, int teamindex )
 		ClientUserinfoChanged ( self, str );
 	}
 */
-
-		self->health = 0;	// so we're not counted in spawn point checking
-		self->client->resp.enterframe = level.framenum;
-	//	InitClientResp( self->client );
-//		self->client->resp.score = 0;
-//		self->client->resp.deposited = 0;
-		PutClientInServer( self );	// find a new spawn point
+		if (self->client->resp.enterframe!=level.framenum)
+			PutClientInServer( self );	// find a new spawn point
 	}
 	return true;
 }
@@ -705,5 +685,5 @@ void Teamplay_InitTeamplay (void)
 
 	last_safe_deposit[0] = last_safe_deposit[1] = 0;
 	last_safe_withdrawal[0] = last_safe_withdrawal[1] = 0;
-	if (teamplay->value) UPDATESCORE
+	if (teamplay->value) UpdateScore();
 }

@@ -5,39 +5,6 @@ extern int hit;
 
 /*
 =================
-check_dodge
-
-This is a support routine used when a client is firing
-a non-instant attack weapon.  It checks to see if a
-monster's dodge function should be called.
-=================
-*/
-static void check_dodge (edict_t *self, vec3_t start, vec3_t dir, int speed)
-{
-	vec3_t	end;
-	vec3_t	v;
-	trace_t	tr;
-	float	eta;
-
-	// easy mode only ducks one quarter the time
-	if (skill->value == 0)
-	{
-		if (random() > 0.25)
-			return;
-	}
-	VectorMA (start, 8192, dir, end);
-	tr = gi.trace (start, NULL, NULL, end, self, MASK_SHOT);
-	if ((tr.ent) && (tr.ent->svflags & SVF_MONSTER) && (tr.ent->health > 0) && (tr.ent->cast_info.dodge) && infront(tr.ent, self))
-	{
-		VectorSubtract (tr.endpos, start, v);
-		eta = (VectorLength(v) - tr.ent->maxs[0]) / speed;
-		tr.ent->cast_info.dodge (tr.ent, self, eta);
-	}
-}
-
-
-/*
-=================
 fire_hit
 
 Used for all impact (hit/punch/slash) attacks
@@ -107,56 +74,6 @@ qboolean fire_hit (edict_t *self, vec3_t aim, int damage, int kick)
 }
 
 
-void ActorDamageSimpleSkinChangeCheck (edict_t *self, vec3_t hit)
-{
-	int baseskin, part, subobject;
-	int	rval;
-
-	if (cl_parental_lock->value && !cl_parental_override->value)
-		return;
-
-	rval = rand()%100;
-
-	if (rval > 75)
-	{
-		part = PART_HEAD;
-		subobject = 0;
-	}
-	else if (rval > 50)
-	{
-		part = PART_LEGS;
-		subobject = rand()%7;
-	}
-	else
-	{
-		part = PART_BODY;
-		subobject = rand()%7;
-	}
-
-
-	if (!self->s.model_parts[part].object_bounds[subobject] && !(self->s.model_parts[part].invisible_objects & (1<<subobject)))
-	{
-		gi.dprintf ("invalid request\n");
-		return;
-	}
-
-//	gi.dprintf ("part: %d subobject: %d\n", part, subobject);
-
-	if (self->art_skins)
-	{
-		baseskin = self->s.model_parts[part].baseskin;
-						
-		if (self->health < (self->max_health * 0.5))
-		{
-			self->s.model_parts[part].skinnum[subobject] =  baseskin + 2;
-		}
-		else if (self->health < (self->max_health * 0.75))
-		{
-			self->s.model_parts[part].skinnum[subobject] =  baseskin + 1;
-		}
-	}
-}
-
 // JOSEPH 14-JAN-99
 /*
 =================
@@ -165,7 +82,6 @@ fire_lead
 This is an internal support routine used for bullet/pellet based weapons.
 =================
 */
-void M_ReactToDamage (edict_t *targ, edict_t *attacker, float damage);
 // JOSEPH
 static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick, int te_impact, int hspread, int vspread, int mod)
 {
@@ -187,9 +103,7 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 	int			conweap = 0;
 
 	self->client->resp.accshot++;
-	hit=0;
-
-	PlayerNoise(self, start, PNOISE_WEAPON);
+	hit = 0;
 
 	tr = gi.trace (self->s.origin, NULL, NULL, start, self, MASK_SHOT );
 	if (!(tr.fraction < 1.0))
@@ -197,7 +111,7 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 		vectoangles (aimdir, dir);
 		AngleVectors (dir, forward, right, up);
 
-		if (deathmatch->value && (mod == MOD_PISTOL || mod == MOD_SILENCER))
+		if (deathmatch_value && (mod == MOD_PISTOL || mod == MOD_SILENCER))
 		{
 			r = 0.0;
 			u = 0.0;
@@ -254,13 +168,13 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 			switch (rand()%3)
 			{
 				case 0:
-					gi.sound (self, CHAN_VOICE, gi.soundindex ("weapons/bullethit_wood1.wav"), 1, ATTN_NORM, 0);
+					gi.sound (self, CHAN_BULLET, gi.soundindex ("weapons/bullethit_wood1.wav"), 1, ATTN_NORM, 0);
 					break;
 				case 1:
-					gi.sound (self, CHAN_VOICE, gi.soundindex ("weapons/bullethit_wood2.wav"), 1, ATTN_NORM, 0);
+					gi.sound (self, CHAN_BULLET, gi.soundindex ("weapons/bullethit_wood2.wav"), 1, ATTN_NORM, 0);
 					break;
 				case 2:
-					gi.sound (self, CHAN_VOICE, gi.soundindex ("weapons/bullethit_wood3.wav"), 1, ATTN_NORM, 0);
+					gi.sound (self, CHAN_BULLET, gi.soundindex ("weapons/bullethit_wood3.wav"), 1, ATTN_NORM, 0);
 					break;
 			}
 		}
@@ -346,7 +260,7 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 						SurfaceSpriteEffectRipple(	SFX_SPRITE_SURF_RIPPLE, SFX_RIPPLE_WIDTH, SFX_RIPPLE_HEIGHT,
 												tr.ent, tr.endpos, tr.plane.normal );
 
-						if (!deathmatch->value)
+						if (!deathmatch_value)
 						{
 							SurfaceSpriteEffectRipple(	SFX_SPRITE_SURF_RIPPLE, SFX_RIPPLE_WIDTH<<1, SFX_RIPPLE_HEIGHT<<1,
 													tr.ent, tr.endpos, tr.plane.normal );
@@ -439,22 +353,12 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 							gi.multicast (tr.endpos, MULTICAST_PVS);
 						}
 					}
-					
-					if (self->client)
-						PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
 				}
 				// END JOSEPH
 				
 				// Ridah, only do MDX bbox check if it's a client firing
-				if (self->client && tr.ent->s.num_parts && (!deathmatch->value || dm_locational_damage->value))
+				if (self->client && tr.ent->s.num_parts && (!deathmatch_value || dm_locational_damage->value))
 				{
-					// either way, react to this attempted hostility
-					// JOSEPH 9-FEB-99
-					if (!(tr.ent->svflags & SVF_PROP) && tr.ent->svflags & SVF_MONSTER)
-					// either way, react to this attempted hostility
-						M_ReactToDamage (tr.ent, self, damage ); 
-					// END JOSEPH
-
 					{
 						#define	MAX_ITERATIONS	10
 						trace_t		ignore;
@@ -578,31 +482,14 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 									}
 								}
 							}
-						} else
+						}
+						else
 							T_Damage (tr.ent, self, self, aimdir, tr.endpos, tr.plane.normal, damage, kick, DAMAGE_BULLET, mod);
 					}
 				}
 				else
 				{
-
-					qboolean check_skin_change = false;
-
-					if (self->svflags & SVF_MONSTER && tr.ent->svflags & SVF_MONSTER && self->cast_group != tr.ent->cast_group && tr.ent->cast_group != 1)
-					{	// Tweak: do more damage when AI shooting AI, more realistic
-						damage *= 2;
-
-						if (tr.ent->gender && !tr.ent->client)
-						{
-							check_skin_change = true;
-						}
-					}
-
 					T_Damage (tr.ent, self, self, aimdir, tr.endpos, tr.plane.normal, damage, kick, DAMAGE_BULLET, mod);
-
-					if (check_skin_change)
-					{
-						ActorDamageSimpleSkinChangeCheck (tr.ent, tr.endpos);
-					}
 				}
 
 //				if (tr.ent->svflags & SVF_MONSTER)
@@ -632,7 +519,7 @@ bolt:
 							VectorCopy( tr.plane.normal, dir );
 						}
 
-						if (deathmatch->value && te_impact == TE_GUNSHOT)
+						if (deathmatch_value && te_impact == TE_GUNSHOT)
 						{
 							te_impact = TE_GUNSHOT_VISIBLE;
 							ClipVelocity( aimdir, tr.plane.normal, dir, 1.5 );
@@ -648,11 +535,8 @@ bolt:
 						}
 					}
 					
-					if (self->client)
-						PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
-
 					// Ridah, surface sprites
-					if (!(self->svflags & SVF_PROP) && !deathmatch->value && !water)	// Ridah, had to remove this in deathmatch, since it's bandwidth hungry
+					if (!(self->svflags & SVF_PROP) && !deathmatch_value && !water)	// Ridah, had to remove this in deathmatch, since it's bandwidth hungry
 					{
 						SurfaceSpriteEffect(	SFX_SPRITE_SURF_BULLET1, SFX_BULLET_WIDTH * 5, SFX_BULLET_HEIGHT * 5,
 												tr.ent, tr.endpos, tr.plane.normal );
@@ -691,7 +575,8 @@ bolt:
 		gi.multicast (pos, MULTICAST_PVS);
 	}
 
-	if (hit && (int)teamplay->value!=1) self->client->resp.acchit++;
+	if (hit)
+		self->client->resp.acchit++;
 }
 // END JOSEPH
 
@@ -705,7 +590,11 @@ pistols, rifles, etc....
 */
 void fire_bullet (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick, int hspread, int vspread, int mod)
 {
+	G_DoTimeShiftFor(self);
+
 	fire_lead (self, start, aimdir, damage, kick, TE_GUNSHOT, hspread, vspread, mod);
+
+	G_UndoTimeShiftFor(self);
 }
 
 
@@ -720,9 +609,12 @@ void fire_shotgun (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int k
 {
 	int		i;
 
+	G_DoTimeShiftFor(self);
+
 	for (i = 0; i < count; i++)
-		// fire_lead (self, start, aimdir, damage, kick, TE_SHOTGUN, hspread, vspread, mod);
-	fire_lead (self, start, aimdir, damage, kick, TE_GUNSHOT, hspread, vspread, mod);
+		fire_lead (self, start, aimdir, damage, kick, TE_GUNSHOT, hspread, vspread, mod);
+
+	G_UndoTimeShiftFor(self);
 }
 
 
@@ -745,9 +637,6 @@ void blaster_touch (edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 		G_FreeEdict (self);
 		return;
 	}
-
-	if (self->owner->client)
-		PlayerNoise(self->owner, self->s.origin, PNOISE_IMPACT);
 
 	if (other->takedamage)
 	{
@@ -812,8 +701,8 @@ void fire_blaster (edict_t *self, vec3_t start, vec3_t dir, int damage, int spee
 		bolt->spawnflags = 1;
 	gi.linkentity (bolt);
 
-	if (self->client)
-		check_dodge (self, bolt->s.origin, dir, speed);
+	// add launch delay compensation here if this weapon gets used
+	bolt->launch_delay = 0;
 
 	tr = gi.trace (self->s.origin, NULL, NULL, bolt->s.origin, bolt, MASK_SHOT);
 	if (tr.fraction < 1.0)
@@ -853,8 +742,8 @@ void fire_blueblaster (edict_t *self, vec3_t start, vec3_t dir, int damage, int 
 	bolt->classname = "bolt";
 	gi.linkentity (bolt);
 
-	if (self->client)
-		check_dodge (self, bolt->s.origin, dir, speed);
+	// add launch delay compensation here if this weapon gets used
+	bolt->launch_delay = 0;
 
 	tr = gi.trace (self->s.origin, NULL, NULL, bolt->s.origin, bolt, MASK_SHOT);
 
@@ -895,9 +784,6 @@ Grenade_Explode
 {
 	vec3_t		origin;
 	int			mod;
-
-	if (ent->owner->client)
-		PlayerNoise(ent->owner, ent->s.origin, PNOISE_IMPACT);
 
 	//FIXME: if we are onground then raise our Z just a bit since we are a point?
 	if (ent->enemy)
@@ -953,9 +839,6 @@ static void Grenade_Explode (edict_t *ent)
 	vec3_t		origin, vec;
 	int			mod;
 	trace_t		tr;
-
-	if (ent->owner->client)
-		PlayerNoise(ent->owner, ent->s.origin, PNOISE_IMPACT);
 
 	if (ent->enemy == ent->owner)
 		ent->enemy = NULL;
@@ -1070,10 +953,6 @@ static void Grenade_Touch (edict_t *ent, edict_t *other, cplane_t *plane, csurfa
 		else
 			gi.sound (ent, CHAN_VOICE, gi.soundindex ("weapons/grenade_launcher/grenade bounce3.wav"), 1, ATTN_NORM, 0);
 
-		// Ridah, Grenade Avoidance: notify AI of our existance
-		AI_AvoidDangerousEntity( ent );
-		// done.
-
 		return;
 	}
 
@@ -1128,26 +1007,6 @@ void fire_grenade (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int s
 	grenade->s.renderfx  |= RF_REFL_MAP;
 	// END JOSEPH
 
-	// Ridah, Grenade Avoidance: notify AI of our existance
-/*
-	{
-		trace_t tr;
-
-		VectorMA( grenade->s.origin, 800, forward, dir );
-
-		tr = gi.trace( grenade->s.origin, NULL, NULL, dir, self, MASK_SHOT );
-
-		VectorCopy( grenade->s.origin, dir );
-		VectorCopy( tr.endpos, grenade->s.origin );
-		VectorMA( grenade->s.origin, -16, forward, grenade->s.origin );
-*/
-		AI_AvoidDangerousEntity( self/*grenade*/ );
-/*
-		VectorCopy( dir, grenade->s.origin );
-	}
-*/
-	// done.
-
 	gi.linkentity (grenade);
 }
 
@@ -1189,8 +1048,6 @@ void fire_dynamite (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int 
 
 	grenade->s.renderfx2 |= RF2_NOSHADOW;	
 	grenade->s.renderfx  |= RF_REFL_MAP;
-
-	AI_AvoidDangerousEntity( self);
 
 	gi.linkentity (grenade);
 }
@@ -1254,15 +1111,13 @@ void rocket_touch (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *su
 	if (other == ent->owner)
 		return;
 
+	if (ent->owner->client && dm_realmode->value == 2)
+		ent->owner->client->resp.accshot++;
+
 	if (surf && (surf->flags & SURF_SKY))
 	{
 		G_FreeEdict (ent);
 		return;
-	}
-
-	if (ent->owner->client) {
-		PlayerNoise(ent->owner, ent->s.origin, PNOISE_IMPACT);
-		ent->owner->client->resp.accshot++;
 	}
 
 	// calculate position for the explosion entity
@@ -1271,13 +1126,16 @@ void rocket_touch (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *su
 	if (other->takedamage)
 	{
 		T_Damage (other, ent, ent->owner, ent->velocity, ent->s.origin, plane->normal, ent->dmg, ent->dmg, 0, MOD_ROCKET);
-		if (hit && (int)teamplay->value!=1) ent->owner->client->resp.acchit++;
+		if (!ent->inuse) // rocket got destroyed by the target
+			return;
+		if (hit && dm_realmode->value == 2)
+			ent->owner->client->resp.acchit++;
 	}
 	else
 	{
 /*
 		// don't throw any debris in net games
-		if (!deathmatch->value && !coop->value)
+		if (!deathmatch_value && !coop_value)
 		{
 			if ((surf) && !(surf->flags & (SURF_WARP|SURF_TRANS33|SURF_TRANS66|SURF_FLOWING)))
 			{
@@ -1369,14 +1227,22 @@ void fire_rocket (edict_t *self, vec3_t start, vec3_t dir, int damage, int speed
 	rocket->takedamage = DAMAGE_YES;
 	rocket->die = rocket_die;
 
-	PlayerNoise(self, start, PNOISE_WEAPON);
-
 	// gi.sound (self, CHAN_WEAPON, gi.soundindex ("weapons/bazooka/baz_fire.wav"), 1, ATTN_NORM, 0);
 
-	if (self->client)
-		check_dodge (self, rocket->s.origin, dir, speed);
-
 	gi.linkentity (rocket);
+
+	// if antilag is enabled, compensate for launch delay on single shots (not from button being held down)
+	if (antilag->value && self->client && !self->client->pers.noantilag && self->client->weapon_thunk)
+	{
+		rocket->launch_delay = self->client->ping / 2 // network delay (assuming each way takes half of ping time)
+			- (curtime - level.frameStartTime); // minus time since last server frame
+		if (rocket->launch_delay < 0)
+			rocket->launch_delay = 0;
+		if (rocket->launch_delay > 200)
+			rocket->launch_delay = 200; // limit it to 200ms
+	}
+	else
+		rocket->launch_delay = 0;
 }
 
 
@@ -1429,9 +1295,6 @@ void fire_rail (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick
 	gi.WritePosition (tr.endpos);
 	gi.WriteDir (tr.plane.normal);
 	gi.multicast (self->s.origin, MULTICAST_PHS);
-
-	if (self->client)
-		PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
 }
 
 
@@ -1495,9 +1358,6 @@ void bfg_touch (edict_t *self, edict_t *other, cplane_t *plane, csurface_t *surf
 		return;
 	}
 
-	if (self->owner->client)
-		PlayerNoise(self->owner, self->s.origin, PNOISE_IMPACT);
-
 	// core explosion - prevents firing it into the wall/floor
 	if (other->takedamage)
 		T_Damage (other, self, self->owner, self->velocity, self->s.origin, plane->normal, 200, 0, 0, MOD_BFG_BLAST);
@@ -1534,7 +1394,7 @@ void bfg_think (edict_t *self)
 	int		dmg;
 	trace_t	tr;
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		dmg = 5;
 	else
 		dmg = 10;
@@ -1631,10 +1491,10 @@ void fire_bfg (edict_t *self, vec3_t start, vec3_t dir, int damage, int speed, f
 	bfg->teammaster = bfg;
 	bfg->teamchain = NULL;
 
-	if (self->client)
-		check_dodge (self, bfg->s.origin, dir, speed);
-
 	gi.linkentity (bfg);
+
+	// add launch delay compensation here if this weapon gets used
+	bfg->launch_delay = 0;
 }
 
 
@@ -1668,9 +1528,6 @@ void ionripper_touch (edict_t *self, edict_t *other, cplane_t *plane, csurface_t
 		G_FreeEdict (self);
 		return;
 	}
-
-	if (self->owner->client)
-			PlayerNoise (self->owner, self->s.origin, PNOISE_IMPACT);
 
 	if (other->takedamage)
 	{
@@ -1718,9 +1575,6 @@ void fire_ionripper (edict_t *self, vec3_t start, vec3_t dir, int damage, int sp
 	ion->dmg = damage;
 	ion->dmg_radius = 100;
 	gi.linkentity (ion);
-
-	if (self->client)
-		check_dodge (self, ion->s.origin, dir, speed);
 
 	tr = gi.trace (self->s.origin, NULL, NULL, ion->s.origin, ion, MASK_SHOT);
 	if (tr.fraction < 1.0)
@@ -1842,10 +1696,10 @@ void fire_heat (edict_t *self, vec3_t start, vec3_t dir, int damage, int speed, 
 	//heat->s.sound = gi.soundindex ("weapons/rocket_launcher/rockfly.wav");
 	// END JOSEPH
 
-	if (self->client)
-		check_dodge (self, heat->s.origin, dir, speed);
-
 	gi.linkentity (heat);
+
+	// add launch delay compensation here if this weapon gets used
+	heat->launch_delay = 0;
 }
 
 
@@ -1868,9 +1722,6 @@ void plasma_touch (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *su
 		G_FreeEdict (ent);
 		return;
 	}
-
-	if (ent->owner->client)
-		PlayerNoise(ent->owner, ent->s.origin, PNOISE_IMPACT);
 
 	// calculate position for the explosion entity
 	VectorMA (ent->s.origin, -0.02, ent->velocity, origin);
@@ -1922,12 +1773,10 @@ void fire_plasma (edict_t *self, vec3_t start, vec3_t dir, int damage, int speed
 	plasma->s.modelindex = gi.modelindex ("sprites/s_photon.sp2");
 	plasma->s.effects |= EF_PLASMA | EF_ANIM_ALLFAST;
 	
-	if (self->client)
-		check_dodge (self, plasma->s.origin, dir, speed);
-
 	gi.linkentity (plasma);
 
-	
+	// add launch delay compensation here if this weapon gets used
+	plasma->launch_delay = 0;
 }
 
 // RAFAEL
@@ -2283,7 +2132,7 @@ void FlameJunc_Think( edict_t *self )
 			// so we don't spawn too many sprites over each other
 			if (last_time > (level.time - 0.5))
 			{
-				if (VectorDistance( last_pos, tr.endpos ) < (32 * (deathmatch->value+1)))
+				if (VectorDistance( last_pos, tr.endpos ) < (32 * (deathmatch_value+1)))
 					goto skip_smoke;
 			}
 
@@ -2314,7 +2163,7 @@ skip_clip:
 
 //	if (self->biketime < level.time)
 	{
-		T_RadiusDamage( self, self->owner, self->dmg * (deathmatch->value ? 3 : 1), NULL, 128, MOD_FLAMETHROWER );
+		T_RadiusDamage( self, self->owner, self->dmg * (deathmatch_value ? 3 : 1), NULL, 128, MOD_FLAMETHROWER );
 		self->biketime = level.time;
 	}
 
@@ -2363,10 +2212,8 @@ void fire_flamethrower (edict_t *self, vec3_t start, vec3_t forward, int damage,
 	VectorMA( start, 8, xup, start );
 	VectorMA ( start, (FLAME_SPEED*FLAME_LIFETIME), xforward, end );
 
-	
-	tr = gi.trace (start, mins, maxs, end, self, MASK_SOLID);
 
-	PlayerNoise(self, start, PNOISE_WEAPON);
+	tr = gi.trace (start, mins, maxs, end, self, MASK_SOLID);
 
 	if (!(self->svflags & SVF_MONSTER))
 	{
@@ -2701,11 +2548,8 @@ static qboolean fire_concussion (edict_t *self, vec3_t start, vec3_t aimdir, flo
 				}	
 				else
 				{
-					gi.sound (self, CHAN_VOICE, gi.soundindex ("weapons/melee/pipehitcement.wav"), 1, ATTN_NORM, 0);		 
+					gi.sound (self, CHAN_AUTO, gi.soundindex ("weapons/melee/pipehitcement.wav"), 1, ATTN_NORM, 0);		 
 				}
-
-				PlayerNoise(self, start, PNOISE_WEAPON);
-
 			}
 			// END JOSEPH
 		
@@ -2739,21 +2583,12 @@ static qboolean fire_concussion (edict_t *self, vec3_t start, vec3_t aimdir, flo
 						gi.WritePosition (tr.endpos);
 						gi.WriteDir (dir);
 						gi.multicast (tr.endpos, MULTICAST_PVS);
-						
-						if (self->client)
-							PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
 				}
 				// END JOSEPH
 
 				// RAFAEL 7-30-98
 				if (tr.ent->s.num_parts && !(tr.ent->client) && !(self->svflags & SVF_MONSTER))
 				{
-					// either way, react to this attempted hostility
-					// JOSEPH 9-FEB-99
-					if (!(tr.ent->svflags & SVF_PROP))
-						M_ReactToDamage (tr.ent, self, damage ); 
-					// END JOSEPH
-					
 					{
 						trace_t		ignore;
 						int			max_iterations=1;
@@ -2868,25 +2703,7 @@ static qboolean fire_concussion (edict_t *self, vec3_t start, vec3_t aimdir, flo
 				}
 				else
 				{
-					
-					qboolean check_skin_change = false;
-
-					if (self->svflags & SVF_MONSTER && tr.ent->svflags & SVF_MONSTER && self->cast_group != tr.ent->cast_group)
-					{	// Tweak: do more damage when AI shooting AI, more realistic
-						damage *= 2;
-
-						if (tr.ent->gender && !tr.ent->client)
-						{
-							check_skin_change = true;
-						}
-					}
-
 					T_Damage (tr.ent, self, self, aimdir, tr.endpos, tr.plane.normal, damage, kick, DAMAGE_BULLET, mod);
-
-					if (check_skin_change)
-					{
-						ActorDamageSimpleSkinChangeCheck (tr.ent, tr.endpos);
-					}
 
 					if ((tr.ent->svflags & SVF_MONSTER || tr.ent->client))
 					{
@@ -2916,9 +2733,6 @@ bolt:
 					}
 					// END JOSEPH
 					
-					if (self->client)
-						PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
-
 					// Ridah, surface sprites
 
 					// SurfaceSpriteEffect(	SFX_SPRITE_SURF_BULLET1, SFX_BULLET_WIDTH * 5, SFX_BULLET_HEIGHT * 5,
@@ -3011,10 +2825,14 @@ qboolean fire_blackjack (edict_t *self, vec3_t start, vec3_t aimdir, int damage,
 {
 	qboolean	rval;
 
+	G_DoTimeShiftFor(self);
+
 	if (self->client)
 		rval = fire_concussion (self, start, aimdir, 48, damage, kick, TE_GUNSHOT, 0, 0, mod);
 	else
 		rval = fire_concussion (self, start, aimdir, 48, damage, kick, TE_GUNSHOT, 0, 0, mod);
+
+	G_UndoTimeShiftFor(self);
 
 	return (rval);
 }
@@ -3030,13 +2848,17 @@ qboolean fire_crowbar (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 	qboolean	rval;
 	float		dist=48;
 
-	if (deathmatch->value)	// Ridah, give it more range in deathmatch
+	if (deathmatch_value)	// Ridah, give it more range in deathmatch
 		dist *= 1.5;
+
+	G_DoTimeShiftFor(self);
 
 	if (self->client)
 		rval = fire_concussion (self, start, aimdir, dist, damage, kick, TE_GUNSHOT, 0, 0, mod);
 	else
 		rval = fire_concussion (self, start, aimdir, dist, damage, kick, TE_GUNSHOT, 0, 0, mod);
+
+	G_UndoTimeShiftFor(self);
 
 	return (rval);
 }

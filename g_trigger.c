@@ -82,7 +82,7 @@ void Touch_Multi2 (edict_t *self, edict_t *other, cplane_t *plane, csurface_t *s
 {
 	if(other->client)
 	{
-		if (!(other->client->pers.holsteredweapon))
+//		if (!(other->client->pers.holsteredweapon))
 			return;
 
 		if (self->spawnflags & 2)
@@ -297,46 +297,6 @@ void trigger_key_use (edict_t *self, edict_t *other, edict_t *activator)
 	// JOSEPH 13-MAY-99
 	//gi.sound (activator, CHAN_AUTO, gi.soundindex ("misc/keyuse.wav"), 1, ATTN_NORM, 0);
 	// END JOSEPH
-	if (coop->value)
-	{
-		int		player;
-		edict_t	*ent;
-
-		if (strcmp(self->item->classname, "key_fuse") == 0)
-		{
-			int	cube;
-
-			for (cube = 0; cube < 8; cube++)
-				if (activator->client->pers.power_cubes & (1 << cube))
-					break;
-			for (player = 1; player <= game.maxclients; player++)
-			{
-				ent = &g_edicts[player];
-				if (!ent->inuse)
-					continue;
-				if (!ent->client)
-					continue;
-				if (ent->client->pers.power_cubes & (1 << cube))
-				{
-					ent->client->pers.inventory[index]--;
-					ent->client->pers.power_cubes &= ~(1 << cube);
-				}
-			}
-		}
-		else
-		{
-			for (player = 1; player <= game.maxclients; player++)
-			{
-				ent = &g_edicts[player];
-				if (!ent->inuse)
-					continue;
-				if (!ent->client)
-					continue;
-				ent->client->pers.inventory[index] = 0;
-			}
-		}
-	}
-	else
 	{
 		activator->client->pers.inventory[index]--;
 	}
@@ -993,6 +953,7 @@ void SP_trigger_unlock (edict_t *self)
 }
 // END JOSEPH
 
+#if 0
 // JOSEPH 16-MAR-99
 /*QUAKED trigger_motorcycle (.5 .5 .5) ?
 Will trigger the motorcycle
@@ -1019,7 +980,7 @@ void SP_trigger_motorcycle (edict_t *self)
 	self->touch = Touch_motorcycle;
 	gi.linkentity (self);
 }
-
+#endif
 
 /*QUAKED trigger_hurt_electric (.5 .5 .5) ? START_OFF TOGGLE SILENT NO_PROTECTION SLOW
 Any entity that touches this will be hurt.
@@ -1098,10 +1059,9 @@ void hurt_touch_electric (edict_t *self, edict_t *other, cplane_t *plane, csurfa
 		{
 			VectorScale (self->movedir, self->speed, other->velocity);
 			gi.sound(other, CHAN_VOICE, gi.soundindex("world/shock.wav"), 1, ATTN_NORM, 0);
-			T_Damage (other, other, other, vec3_origin, other->s.origin, vec3_origin, self->dmg, self->dmg, dflags, MOD_FALLING);	
+			T_Damage (other, other, other, vec3_origin, other->s.origin, vec3_origin, self->dmg, self->dmg, dflags, MOD_ELECTRIC);
 		}
 	}
-	
 }
 
 void SP_trigger_hurt_electric (edict_t *self)

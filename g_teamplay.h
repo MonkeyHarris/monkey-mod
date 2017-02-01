@@ -27,7 +27,6 @@ typedef enum
 
 extern char *team_names[];
 
-extern teamplay_mode_t	teamplay_mode;
 extern int		num_cash_items;
 
 extern int	team_cash[3];	// cash per team, 0 is neutral so just ignore

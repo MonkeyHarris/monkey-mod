@@ -53,27 +53,17 @@ edict_t *G_Find (edict_t *from, int fieldofs, char *match)
 G_ClearUp
 =============
 */
-void G_ClearUp (edict_t *from, int fieldofs)
+void G_ClearUp (void)
 {
-	char	*s;
-
-	if (!from)
-		from = g_edicts;
-	else
-		from++;
+	edict_t *from = g_edicts;
 
 	for ( ; from < &g_edicts[globals.num_edicts] ; from++)
 	{
-		if (!from->inuse)
+		if (!from->inuse || !from->classname)
 			continue;
-		s = *(char **) ((byte *)from + fieldofs);
-		if (!s)
-			continue;
-		if (from->nextthink)
-            if (from->nextthink > level.time)
-                from->nextthink = level.time;
+		if (from->nextthink > level.time)
+			from->nextthink = level.time;
 	}
-
 }
 
 
@@ -181,6 +171,8 @@ match (string)self.target and call their .use function
 
 ==============================
 */
+void func_timer_think (edict_t *self);
+
 void G_UseTargets (edict_t *ent, edict_t *activator)
 {
 	edict_t		*t;
@@ -188,7 +180,7 @@ void G_UseTargets (edict_t *ent, edict_t *activator)
 //
 // check for a delay
 //
-	if (ent->delay && ent->think != Think_Delay)
+	if (ent->delay && ent->think != Think_Delay && ent->think != func_timer_think)
 	{
 	// create a temp object to fire at a later time
 		t = G_Spawn();
@@ -455,7 +447,7 @@ edict_t *G_Spawn (void)
 	{
 		// the first couple seconds of server time can involve a lot of
 		// freeing and allocating, so relax the replacement policy
-		if (!e->inuse && ( e->freetime < 2 || level.time - e->freetime > 0.5 ) )
+		if (!e->inuse && ( e->freetime < 2 || level.time - e->freetime > 1 ) )
 		{
 			G_InitEdict (e);
 			return e;
@@ -587,19 +579,28 @@ of ent.  Ent should be unlinked before calling this!
 qboolean KillBox (edict_t *ent)
 {
 	trace_t		tr;
+	int			mask = MASK_PLAYERSOLID;
 
 	while (1)
 	{
-		tr = gi.trace (ent->s.origin, ent->mins, ent->maxs, ent->s.origin, NULL, MASK_PLAYERSOLID);
-		if (!tr.ent)
+		tr = gi.trace (ent->s.origin, ent->mins, ent->maxs, ent->s.origin, NULL, mask);
+		if (!tr.ent || !tr.startsolid)
 			break;
 
 		// nail it
-		T_Damage (tr.ent, ent, ent, vec3_origin, ent->s.origin, vec3_origin, 100000, 0, DAMAGE_NO_PROTECTION, MOD_TRIGGER_HURT); //MOD TELEFRAG
+		T_Damage (tr.ent, ent, ent, vec3_origin, ent->s.origin, vec3_origin, 100000, 0, DAMAGE_NO_PROTECTION, MOD_TELEFRAG);
 
 		// if we didn't kill it, fail
 		if (tr.ent->solid)
+		{
+			// recheck if necessary to make sure a monster/player there is killed
+			if (!(tr.contents & CONTENTS_MONSTER) && mask != CONTENTS_MONSTER)
+			{
+				mask = CONTENTS_MONSTER;
+				continue;
+			}
 			return false;
+		}
 	}
 
 	return true;		// all clear
@@ -671,7 +672,7 @@ qboolean	SurfaceSpriteEffect(	byte surf_sfx, byte width, byte height,
 	gi.WriteAngle (angles[0]);
 	gi.WriteAngle (angles[1]);	// don't need ROLL
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		gi.multicast (center_pos, MULTICAST_PVS);
 	else
 		gi.multicast (center_pos, MULTICAST_ALL);
@@ -737,7 +738,7 @@ qboolean	SurfaceSpriteEffectRipple(	byte surf_sfx, byte width, byte height,
 	gi.WriteAngle (angles[0]);
 	gi.WriteAngle (angles[1]);	// don't need ROLL
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		gi.multicast (center_pos, MULTICAST_PVS);
 	else
 		gi.multicast (center_pos, MULTICAST_ALL);

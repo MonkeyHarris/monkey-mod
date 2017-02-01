@@ -2381,14 +2381,14 @@ void SP_func_subdoor_base (edict_t *ent)
 
 	if (!ent->dmg)
 		ent->dmg = 2;
-
+/*
 	if (ent->sounds != 1)
 	{
 		ent->moveinfo.sound_start = gi.soundindex  ("doors/dr1_strt.wav");
 		ent->moveinfo.sound_middle = gi.soundindex  ("doors/dr1_mid.wav");
 		ent->moveinfo.sound_end = gi.soundindex  ("doors/dr1_end.wav");
 	}
-
+*/
 	// if it starts open, switch the positions
 	if (ent->spawnflags & DOOR_START_OPEN)
 	{
@@ -3939,11 +3939,11 @@ void SP_func_door_secret (edict_t *ent)
 	float	side;
 	float	width;
 	float	length;
-
+/*
 	ent->moveinfo.sound_start = gi.soundindex  ("doors/dr1_strt.wav");
 	ent->moveinfo.sound_middle = gi.soundindex  ("doors/dr1_mid.wav");
 	ent->moveinfo.sound_end = gi.soundindex  ("doors/dr1_end.wav");
-
+*/
 	ent->movetype = MOVETYPE_PUSH;
 	ent->solid = SOLID_BSP;
 	gi.setmodel (ent, ent->model);

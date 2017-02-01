@@ -703,10 +703,10 @@ vec_t VectorNormalize (vec3_t v)
 	float	length, ilength;
 
 	length = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
-	length = sqrt (length);		// FIXME
 
 	if (length)
 	{
+		length = sqrt (length);		// FIXME
 		ilength = 1/length;
 		v[0] *= ilength;
 		v[1] *= ilength;
@@ -722,10 +722,10 @@ vec_t VectorNormalize2 (vec3_t v, vec3_t out)
 	float	length, ilength;
 
 	length = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
-	length = sqrt (length);		// FIXME
 
 	if (length)
 	{
+		length = sqrt (length);		// FIXME
 		ilength = 1/length;
 		out[0] = v[0]*ilength;
 		out[1] = v[1]*ilength;
@@ -1287,7 +1287,7 @@ void Com_PageInMemory (byte *buffer, int size)
 
 ============================================================================
 */
-
+/*
 // FIXME: replace all Q_stricmp with Q_strcasecmp
 int Q_stricmp (char *s1, char *s2)
 {
@@ -1297,9 +1297,9 @@ int Q_stricmp (char *s1, char *s2)
 	return strcasecmp (s1, s2);
 #endif
 }
+*/
 
-
-int Q_strncasecmp (char *s1, char *s2, int n)
+int Q_strncasecmp (const char *s1, const char *s2, int n)
 {
 	int		c1, c2;
 	
@@ -1325,7 +1325,7 @@ int Q_strncasecmp (char *s1, char *s2, int n)
 	return 0;		// strings are equal
 }
 
-int Q_strcasecmp (char *s1, char *s2)
+int Q_strcasecmp (const char *s1, const char *s2)
 {
 	return Q_strncasecmp (s1, s2, 99999);
 }
@@ -1509,7 +1509,6 @@ void Info_SetValueForKey (char *s, char *key, char *value)
 {
 	char	newi[MAX_INFO_STRING], *v;
 	int		c;
-	int		maxsize = MAX_INFO_STRING;
 
 	if (strstr (key, "\\") || strstr (value, "\\") )
 	{
@@ -1540,7 +1539,7 @@ void Info_SetValueForKey (char *s, char *key, char *value)
 
 	Com_sprintf (newi, sizeof(newi), "\\%s\\%s", key, value);
 
-	if (strlen(newi) + strlen(s) > maxsize)
+	if (strlen(newi) + strlen(s) > MAX_INFO_STRING-1)
 	{
 		Com_Printf ("Info string length exceeded\n");
 		return;
@@ -1561,4 +1560,40 @@ void Info_SetValueForKey (char *s, char *key, char *value)
 
 //====================================================================
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/time.h>
+#endif
 
+int	curtime;
+
+int Sys_Milliseconds()
+{
+#ifdef _WIN32
+	static int		base;
+	static qboolean	initialized = false;
+
+	if (!initialized)
+	{	// let base retain 16 bits of effectively random data
+		base = timeGetTime() & 0xffff0000;
+		initialized = true;
+	}
+	curtime = timeGetTime() - base;
+#else
+	struct timeval tp;
+	static unsigned int		secbase;
+
+	gettimeofday(&tp, NULL);
+	
+	if (!secbase)
+	{
+		secbase = tp.tv_sec;
+		return tp.tv_usec/1000;
+	}
+
+	curtime = (tp.tv_sec - secbase)*1000 + tp.tv_usec/1000;
+#endif
+
+	return curtime;
+}

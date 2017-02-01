@@ -1,20 +1,11 @@
 
 #include "g_local.h"
-//#include "stdlog.h"	//	Standard Logging
-//#include "gslog.h"	//	Standard Logging
-
-#define Function(f) {#f, f}
 
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <dlfcn.h>
 #endif
-void *geoip=0;
-void (*_GeoIP_delete)(void* gi);
-const char *(*_GeoIP_country_name_by_addr)(void* gi, const char *addr);
-
-mmove_t mmove_reloc;
 
 field_t fields[] = {
 	{"classname", FOFS(classname), F_LSTRING},
@@ -169,77 +160,6 @@ field_t fields[] = {
 	// Ridah, done.
 
 	
-	{"goalentity", FOFS(goalentity), F_EDICT, FFL_NOSPAWN},
-	{"movetarget", FOFS(movetarget), F_EDICT, FFL_NOSPAWN},
-	{"enemy", FOFS(enemy), F_EDICT, FFL_NOSPAWN},
-	{"oldenemy", FOFS(oldenemy), F_EDICT, FFL_NOSPAWN},
-	{"activator", FOFS(activator), F_EDICT, FFL_NOSPAWN},
-	{"groundentity", FOFS(groundentity), F_EDICT, FFL_NOSPAWN},
-	{"teamchain", FOFS(teamchain), F_EDICT, FFL_NOSPAWN},
-	{"teammaster", FOFS(teammaster), F_EDICT, FFL_NOSPAWN},
-	{"owner", FOFS(owner), F_EDICT, FFL_NOSPAWN},
-	{"mynoise", FOFS(mynoise), F_EDICT, FFL_NOSPAWN},
-	{"mynoise2", FOFS(mynoise2), F_EDICT, FFL_NOSPAWN},
-	{"target_ent", FOFS(target_ent), F_EDICT, FFL_NOSPAWN},
-	{"chain", FOFS(chain), F_EDICT, FFL_NOSPAWN},
-
-	{"prethink", FOFS(prethink), F_FUNCTION, FFL_NOSPAWN},
-	{"think", FOFS(think), F_FUNCTION, FFL_NOSPAWN},
-	{"blocked", FOFS(blocked), F_FUNCTION, FFL_NOSPAWN},
-	{"touch", FOFS(touch), F_FUNCTION, FFL_NOSPAWN},
-	{"use", FOFS(use), F_FUNCTION, FFL_NOSPAWN},
-	{"pain", FOFS(pain), F_FUNCTION, FFL_NOSPAWN},
-	{"die", FOFS(die), F_FUNCTION, FFL_NOSPAWN},
-
-	{"idle", FOFS(cast_info.idle), F_FUNCTION, FFL_NOSPAWN},
-	{"search", FOFS(cast_info.search), F_FUNCTION, FFL_NOSPAWN},
-	{"dodge", FOFS(cast_info.dodge), F_FUNCTION, FFL_NOSPAWN},
-	{"attack", FOFS(cast_info.attack), F_FUNCTION, FFL_NOSPAWN},
-	{"long_attack", FOFS(cast_info.long_attack), F_FUNCTION, FFL_NOSPAWN},
-	{"sight", FOFS(cast_info.sight), F_FUNCTION, FFL_NOSPAWN},
-	{"duck", FOFS(cast_info.duck), F_FUNCTION, FFL_NOSPAWN},
-	{"talk", FOFS(cast_info.talk), F_FUNCTION, FFL_NOSPAWN},
-	{"avoid", FOFS(cast_info.avoid), F_FUNCTION, FFL_NOSPAWN},
-	
-	{"backoff", FOFS(cast_info.backoff), F_FUNCTION, FFL_NOSPAWN},
-	
-	{"catch_fire", FOFS(cast_info.catch_fire), F_FUNCTION, FFL_NOSPAWN},
-	{"checkattack", FOFS(cast_info.checkattack), F_FUNCTION, FFL_NOSPAWN},
-	{"currentmove", FOFS(cast_info.currentmove), F_MMOVE, FFL_NOSPAWN},
-	
-	{"oldcurrentmove", FOFS(cast_info.oldcurrentmove), F_MMOVE, FFL_NOSPAWN},
-
-	{"move_stand", FOFS(cast_info.move_stand), F_MMOVE, FFL_NOSPAWN},
-	{"move_crstand", FOFS(cast_info.move_crstand), F_MMOVE, FFL_NOSPAWN},
-	{"move_run", FOFS(cast_info.move_run), F_MMOVE, FFL_NOSPAWN},
-	{"move_runwalk", FOFS(cast_info.move_runwalk), F_MMOVE, FFL_NOSPAWN},
-	{"move_crwalk", FOFS(cast_info.move_crwalk), F_MMOVE, FFL_NOSPAWN},
-	{"move_jump", FOFS(cast_info.move_jump), F_MMOVE, FFL_NOSPAWN},
-	{"move_crouch_down", FOFS(cast_info.move_crouch_down), F_MMOVE, FFL_NOSPAWN},
-	{"move_stand_up", FOFS(cast_info.move_stand_up), F_MMOVE, FFL_NOSPAWN},
-	{"move_avoid_walk", FOFS(cast_info.move_avoid_walk), F_MMOVE, FFL_NOSPAWN},
-	{"move_avoid_run", FOFS(cast_info.move_avoid_run), F_MMOVE, FFL_NOSPAWN},
-	{"move_avoid_reverse_walk", FOFS(cast_info.move_avoid_reverse_walk), F_MMOVE, FFL_NOSPAWN},
-	{"move_avoid_reverse_run", FOFS(cast_info.move_avoid_reverse_run), F_MMOVE, FFL_NOSPAWN},
-	{"move_avoid_crwalk", FOFS(cast_info.move_avoid_crwalk), F_MMOVE, FFL_NOSPAWN},
-	{"move_lside_step", FOFS(cast_info.move_lside_step), F_MMOVE, FFL_NOSPAWN},
-	{"move_rside_step", FOFS(cast_info.move_rside_step), F_MMOVE, FFL_NOSPAWN},
-	{"move_start_climb", FOFS(cast_info.move_start_climb), F_MMOVE, FFL_NOSPAWN},
-	{"move_end_climb", FOFS(cast_info.move_end_climb), F_MMOVE, FFL_NOSPAWN},
-	{"move_evade", FOFS(cast_info.move_evade), F_MMOVE, FFL_NOSPAWN},
-	{"move_stand_evade", FOFS(cast_info.move_stand_evade), F_MMOVE, FFL_NOSPAWN},
-	
-
-	{"avoid_ent", FOFS(cast_info.avoid_ent), F_EDICT, FFL_NOSPAWN},
-	{"talk_ent", FOFS(cast_info.talk_ent), F_EDICT, FFL_NOSPAWN},
-
-	{"friend_memory", FOFS(cast_info.friend_memory), F_CAST_MEMORY, FFL_NOSPAWN},
-	{"neutral_memory", FOFS(cast_info.neutral_memory), F_CAST_MEMORY, FFL_NOSPAWN},
-	{"enemy_memory", FOFS(cast_info.enemy_memory), F_CAST_MEMORY, FFL_NOSPAWN},
-
-	{"endfunc", FOFS(moveinfo.endfunc), F_FUNCTION, FFL_NOSPAWN},
-
-
 	// temp spawn vars -- only valid when the spawn function is called
 	{"lip", STOFS(lip), F_INT, FFL_SPAWNTEMP},
 	{"distance", STOFS(distance), F_INT, FFL_SPAWNTEMP},
@@ -269,40 +189,8 @@ field_t fields[] = {
 
 };
 
-field_t		levelfields[] =
-{
-	{"changemap", LLOFS(changemap), F_LSTRING},
-                   
-	{"sight_client", LLOFS(sight_client), F_EDICT},
-	{"sight_entity", LLOFS(sight_entity), F_EDICT},
-	{"sound_entity", LLOFS(sound_entity), F_EDICT},
-	{"sound2_entity", LLOFS(sound2_entity), F_EDICT},
 
-	{"characters", LLOFS(characters), F_IGNORE},
-
-	{NULL, 0, F_INT}
-};
-
-field_t		clientfields[] =
-{
-	{"pers.weapon", CLOFS(pers.weapon), F_ITEM},
-	{"pers.holsteredweapon", CLOFS(pers.holsteredweapon), F_ITEM},
-	{"pers.lastweapon", CLOFS(pers.lastweapon), F_ITEM},
-	{"newweapon", CLOFS(newweapon), F_ITEM},
-	{NULL, 0, F_INT}
-};
-
-field_t		castmemoryfields[] =
-{
-	{"response", CMOFS(response), F_FUNCTION},
-	{"next", CMOFS(next), F_CAST_MEMORY},
-	{"prev", CMOFS(prev), F_CAST_MEMORY},
-
-	{NULL, 0, F_INT}
-};
-
-
-char lockpvs[8],scaletime[8],locktex[8],lockfoot[8],lockmouse[8];
+char cmd_check[8];
 
 /*
 ============
@@ -333,8 +221,6 @@ void InitGame (void)
 	gi.dprintf ("!!!! DEBUGGING !!!! \n");
 #endif
 
-//	sl_Logging( &gi, NULL );	// Standard Logging
-	
 	gi.dprintf ("==== InitGame ====\n");
 
 	srand( (unsigned)time( NULL ) );
@@ -357,48 +243,41 @@ void InitGame (void)
 	gi.cvar ("gamename", GAMEVERSION , CVAR_SERVERINFO | CVAR_LATCH);
 	gi.cvar ("gamedate", __DATE__ , CVAR_SERVERINFO | CVAR_LATCH);
 
-    no_spec = gi.cvar ("no_spec", "0", CVAR_SERVERINFO);
-    no_shadows = gi.cvar ("no_shadows", "0", CVAR_SERVERINFO);
-    no_zoom = gi.cvar ("no_zoom", "0", CVAR_SERVERINFO);
+	no_spec = gi.cvar ("no_spec", "0", 0);
+	no_shadows = gi.cvar ("no_shadows", "0", 0);
+	no_zoom = gi.cvar ("no_zoom", "0", 0);
 
 	maxclients = gi.cvar ("maxclients", "4", CVAR_SERVERINFO | CVAR_LATCH);
-	deathmatch = gi.cvar ("deathmatch", "0", CVAR_LATCH);
-	coop = gi.cvar ("coop", "0", CVAR_LATCH);
-	skill = gi.cvar ("skill", "1", CVAR_LATCH);
+//	deathmatch = gi.cvar ("deathmatch", "0", CVAR_LATCH);
+//	coop = gi.cvar ("coop", "0", CVAR_LATCH);
 
 	// JOSEPH 16-OCT-98
 	maxentities = gi.cvar ("maxentities", /*"1024"*/"2048", CVAR_LATCH);
-
-	// RAFAEL
-//	marines = gi.cvar ("marines", "0", CVAR_ARCHIVE);
 
 	// change anytime vars
 	dmflags = gi.cvar ("dmflags", "0", CVAR_SERVERINFO|CVAR_ARCHIVE);
 	fraglimit = gi.cvar ("fraglimit", "0", CVAR_SERVERINFO);
 	timelimit = gi.cvar ("timelimit", "0", CVAR_SERVERINFO);
-	cashlimit = gi.cvar ("cashlimit", "0", CVAR_SERVERINFO);
 	password = gi.cvar ("password", "", CVAR_USERINFO);
 	filterban = gi.cvar ("filterban", "1", 0);
 
-	// snap, new uptime cvar
-	gi.cvar ("uptime", "", CVAR_SERVERINFO);
+	antilag = gi.cvar("antilag", "1", CVAR_SERVERINFO);
+	props = gi.cvar("props", "0", 0);
 
-	days = gi.cvar ("days", "", 0);
-	hours = gi.cvar ("hours", "", 0);
-	minutes = gi.cvar ("minutes", "", 0);
-	seconds = gi.cvar ("seconds", "", 0);
+	bonus = gi.cvar("bonus", "0", 0);
 
-	gi.cvar("rconx", "", 0);
-	gi.cvar("modadmin","", 0);
-
-    // snap - team tags
-	gi.cvar(TEAMNAME, "", CVAR_SERVERINFO);
-	gi.cvar_set(TEAMNAME,"");
-
-	gi.cvar(SCORENAME, "", CVAR_SERVERINFO);
-	gi.cvar_set(SCORENAME,"");
-	gi.cvar(TIMENAME, "", CVAR_SERVERINFO);
-	gi.cvar_set(TIMENAME,"");
+	if (kpded2 && (int)gi.cvar("sv_uptime", "0", 0)->value)
+	{
+		// kpded2's uptime status is enabled, so disable ours
+		starttime = 0;
+	}
+	else
+	{
+		char buf[20];
+		Com_sprintf(buf, sizeof(buf), "%d", time(NULL));
+		starttime = atoi(gi.cvar("starttime", buf, 0)->string);
+		gi.cvar("uptime", "", CVAR_SERVERINFO);
+	}
 
 	g_select_empty = gi.cvar ("g_select_empty", "0", CVAR_ARCHIVE);
 
@@ -413,16 +292,12 @@ void InitGame (void)
 	flood_persecond = gi.cvar ("flood_persecond", "4", 0);
 	flood_waitdelay = gi.cvar ("flood_waitdelay", "10", 0);
 
-    kick_flamehack = gi.cvar ("kick_flamehack","1",CVAR_SERVERINFO);
-    anti_spawncamp = gi.cvar ("anti_spawncamp","0",CVAR_SERVERINFO);
-    idle_client	= gi.cvar("idle_client", "120", 0);
+	kick_flamehack = gi.cvar ("kick_flamehack", "1", CVAR_SERVERINFO);
+	anti_spawncamp = gi.cvar ("anti_spawncamp", "1", 0);
+	idle_client = gi.cvar("idle_client", "120", 0);
 
 // Ridah, new cvar's
 	developer = gi.cvar ("developer", "0", 0);
-
-	maxrate = gi.cvar ("maxrate", "25000", CVAR_SERVERINFO);
-
-	ai_debug_memory = gi.cvar ("ai_debug_memory", "0", 0);
 
 	g_vehicle_test = gi.cvar ("g_vehicle_test", "0", CVAR_LATCH);	// Enables Hovercars for all players
 
@@ -430,49 +305,35 @@ void InitGame (void)
 
 	showlights =  gi.cvar ("showlights", "0", 0);
 
-	r_directional_lighting = gi.cvar ("r_directional_lighting", "1", CVAR_ARCHIVE);
+	timescale = gi.cvar("timescale", "1.0", 0);
 
-	cl_captions = gi.cvar ("cl_captions", "0", CVAR_ARCHIVE);	// Ridah, disabled this by default, is that cool?
+	// speed hack fix
+	gi.cvar_set("sv_enforcetime", "1");
 
-	sv_runscale = gi.cvar ("sv_runscale", "1.0", 0);	// only effective in Deathmatch
-
-	burn_enabled	= gi.cvar("burn_enabled", "0", 0);
-	burn_size		= gi.cvar("burn_size", "48", 0);
-	burn_intensity	= gi.cvar("burn_intensity", "0.03", 0);
-	burn_r			= gi.cvar("burn_r", "1.0", 0);
-	burn_g			= gi.cvar("burn_g", "1.0", 0);
-	burn_b			= gi.cvar("burn_b", "1.0", 0);
-
-	timescale		= gi.cvar("timescale", "1.0", 0);
-
-    // speed hack fix
-	gi.cvar_set("sv_enforcetime","1");
-
-	teamplay		= gi.cvar("teamplay", "0", CVAR_LATCH|CVAR_SERVERINFO);
-	if (teamplay->value!=0 && teamplay->value!=1 && teamplay->value!=4)
-		gi.cvar_set("teamplay","1");
+	teamplay = gi.cvar("teamplay", "0", CVAR_LATCH|CVAR_SERVERINFO);
+	if (teamplay->value != 0 && teamplay->value != 1 && teamplay->value != 4)
+		gi.cvar_set("teamplay", "1");
+	cashlimit = gi.cvar ("cashlimit", "0", teamplay->value == 1 ? CVAR_SERVERINFO : 0);
 
 	g_cashspawndelay = gi.cvar("g_cashspawndelay", "5", CVAR_ARCHIVE|CVAR_LATCH);
-
-	// this is only used for single player games
-	cl_parental_lock = gi.cvar( "cl_parental_lock", "0", CVAR_NOSET);
-	cl_parental_override = gi.cvar( "cl_parental_override", "0", CVAR_NOSET);
 
 	dm_realmode = gi.cvar( "dm_realmode", "0", CVAR_LATCH|CVAR_SERVERINFO);
 	
 	g_mapcycle_file = gi.cvar( "g_mapcycle_file", "", 0);
 // Ridah, done.
-	
-	//Snap
-	uptime_days = uptime_hours = uptime_minutes = uptime_seconds = 0;
+
+	// snap - team tags
+	gi.cvar(TEAMNAME, "", CVAR_SERVERINFO);
+	gi.cvar_set(TEAMNAME, "");
+
+	gi.cvar(SCORENAME, "", CVAR_SERVERINFO);
+	gi.cvar_set(SCORENAME, "");
+	// the "rconx serverinfo" command needs this to be the final serverinfo cvar
+	gi.cvar(TIMENAME, "", CVAR_SERVERINFO);
+	gi.cvar_set(TIMENAME, "");
 
 	// items
 	InitItems ();
-//	InitMaps ();
-
-	Com_sprintf (game.helpmessage1, sizeof(game.helpmessage1), "");
-
-	Com_sprintf (game.helpmessage2, sizeof(game.helpmessage2), "");
 
 	// initialize all entities for this game
 	game.maxentities = maxentities->value;
@@ -480,942 +341,108 @@ void InitGame (void)
 	globals.edicts = g_edicts;
 	globals.max_edicts = game.maxentities;
 
-	g_cast_memory = gi.TagMalloc (MAX_CHARACTERS * MAX_CHARACTERS * sizeof(cast_memory_t), TAG_GAME );
-	memset( g_cast_memory, 0, MAX_CHARACTERS * MAX_CHARACTERS * sizeof(cast_memory_t) );
-
-	g_cast_groups = gi.TagMalloc (MAX_CAST_GROUPS * sizeof(cast_group_t), TAG_GAME );
-	memset( g_cast_groups, 0, MAX_CAST_GROUPS * sizeof(cast_group_t) );
-
 	// initialize all clients for this game
 	game.maxclients = maxclients->value;
 	game.clients = gi.TagMalloc (game.maxclients * sizeof(game.clients[0]), TAG_GAME);
 	globals.num_edicts = game.maxclients+1;
 
-// Papa 10.6.99	
+	// disable single player and co-op modes
+	gi.cvar_set("deathmatch", "1");
+	gi.cvar_set("coop", "0");
 
-
-	// MGC test
 	i = proccess_ini_file();
 	if (i != OK)
+		gi.dprintf("Error opening comp ini file\n");
+	else
+		gi.dprintf("Processed comp.ini file\n");
+
+	if (!map_list_filename[0])
+		strcpy(map_list_filename, g_mapcycle_file->string);
+
+	if (map_list_filename[0])
 	{
-		if (i == FILE_OPEN_ERROR)	gi.dprintf("Comp.ini file not opened!\n");
+		i = read_map_file();
+		if (i != OK)
+			gi.dprintf("Error opening map list file (%s)\n", map_list_filename);
 		else
-			gi.dprintf("Error opening Comp ini file!\n");
+			gi.dprintf("Processed map list file (%s)\n", map_list_filename);
 	}
-	else
-		gi.dprintf("Processed comp.ini file!\n");
-
-	i = read_map_file();
-	if (i != OK)
-	{	
-		if (i == FILE_OPEN_ERROR)	gi.dprintf("Custom Maps file not opened!\n");
-		else
-			gi.dprintf("Error opening Custom Maps file!\n");
-
+	if (!num_maps)
 		allow_map_voting = false;
-	}
-	else
-		gi.dprintf("Processed custom_maps file!\n");
 
-	for (i=0;i<7;i++) lockpvs[i]='A'+(rand()%26)+(rand()&32);
-	lockpvs[i]=0;
-	for (i=0;i<7;i++) scaletime[i]='A'+(rand()%26)+(rand()&32);
-	scaletime[i]=0;
-	for (i=0;i<7;i++) locktex[i]='A'+(rand()%26)+(rand()&32);
-	locktex[i]=0;
-    for (i=0;i<7;i++) lockfoot[i]='A'+(rand()%26)+(rand()&32);
-    lockfoot[i]=0;
-    for (i=0;i<7;i++) lockmouse[i]='A'+(rand()%26)+(rand()&32);
-    lockmouse[i]=0;
+	cmd_check[0] = '\176';
+	for (i=1; i<7; i++)
+		cmd_check[i] = 'A'+(rand()%26)+(rand()&32);
+	cmd_check[i] = 0;
 
+	// load & initialize GeoIP library
+	if (!disable_geoip)
 	{
 #ifdef _WIN32
-		HINSTANCE libgeoip=LoadLibrary("GeoIP");
+		HINSTANCE libgeoip = LoadLibrary("GeoIP");
 #else
-		void *libgeoip=dlopen("libGeoIP.so.1",RTLD_LAZY|RTLD_LOCAL);
+		void *libgeoip = dlopen("libGeoIP.so.1", RTLD_LAZY|RTLD_LOCAL);
 #endif
-		if (libgeoip) {
+		if (libgeoip)
+		{
 			void* (*_GeoIP_new)(int flags);
 #ifdef _WIN32
-			*(void**)&_GeoIP_new=GetProcAddress(libgeoip,"GeoIP_new");
-			*(void**)&_GeoIP_delete=GetProcAddress(libgeoip,"GeoIP_delete");
-			*(void**)&_GeoIP_country_name_by_addr=GetProcAddress(libgeoip,"GeoIP_country_name_by_addr");
+			*(void**)&_GeoIP_new = GetProcAddress(libgeoip, "GeoIP_new");
+			*(void**)&_GeoIP_delete = GetProcAddress(libgeoip, "GeoIP_delete");
+			*(void**)&_GeoIP_country_name_by_addr = GetProcAddress(libgeoip, "GeoIP_country_name_by_addr");
 #else
-			_GeoIP_new=dlsym(libgeoip,"GeoIP_new");
-			_GeoIP_delete=dlsym(libgeoip,"GeoIP_delete");
-			_GeoIP_country_name_by_addr=dlsym(libgeoip,"GeoIP_country_name_by_addr");
+			_GeoIP_new = dlsym(libgeoip, "GeoIP_new");
+			_GeoIP_delete = dlsym(libgeoip, "GeoIP_delete");
+			_GeoIP_country_name_by_addr = dlsym(libgeoip, "GeoIP_country_name_by_addr");
 #endif
-			geoip=_GeoIP_new(0);
-			if (!geoip) {
+			geoip = _GeoIP_new(0);
+			if (!geoip)
+			{
 #ifdef _WIN32
 				FreeLibrary(libgeoip);
 #else
 				dlclose(libgeoip);
 #endif
 				gi.dprintf("Failed to load GeoIP database\n");
-			} else
+			}
+			else
 				gi.dprintf("Loaded GeoIP database\n");
 		}
 	}
-}
 
-//=========================================================
-
-void WriteField1 (FILE *f, field_t *field, byte *base)
-{
-	void		*p;
-	int			len;
-	int			index;
-
-	if (field->flags & FFL_SPAWNTEMP)
-		return;
-
-	p = (void *)(base + field->ofs);
-	switch (field->type)
+	if (kpded2)
 	{
-	case F_INT:
-	case F_FLOAT:
-	case F_ANGLEHACK:
-	case F_VECTOR:
-	case F_IGNORE:
-		break;
-
-	case F_LSTRING:
-	case F_GSTRING:
-		if ( *(char **)p )
-			len = strlen(*(char **)p) + 1;
-		else
-			len = 0;
-		*(int *)p = len;
-		break;
-	case F_EDICT:
-		if ( *(edict_t **)p == NULL)
-			index = -1;
-		else
-			index = *(edict_t **)p - g_edicts;
-		*(int *)p = index;
-		break;
-	case F_CLIENT:
-		if ( *(gclient_t **)p == NULL)
-			index = -1;
-		else
-			index = *(gclient_t **)p - game.clients;
-		*(int *)p = index;
-		break;
-	case F_ITEM:
-		if ( *(edict_t **)p == NULL)
-			index = -1;
-		else
-			index = *(gitem_t **)p - itemlist;
-		*(int *)p = index;
-		break;
-
-	case F_CAST_MEMORY:
-		if ( *(cast_memory_t **)p == NULL)
-			index = -1;
-		else
-			index = *(cast_memory_t **)p - g_cast_memory;
-		*(int *)p = index;
-		break;
-
-	//relative to code segment
-	case F_FUNCTION:
-		if (*(byte **)p == NULL)
-			index = 0;
-		else
-			index = *(byte **)p - ((byte *)InitGame);
-		*(int *)p = index;
-		break;
-
-	//relative to data segment
-	case F_MMOVE:
-		if (*(byte **)p == NULL)
-			index = 0;
-		else
-			index = *(byte **)p - (byte *)&mmove_reloc;
-		*(int *)p = index;
-		break;
-
-	default:
-		gi.error ("WriteEdict: unknown field type");
-	}
-}
-
-
-void WriteField2 (FILE *f, field_t *field, byte *base)
-{
-	int			len;
-	void		*p;
-
-	if (field->flags & FFL_SPAWNTEMP)
-		return;
-
-	p = (void *)(base + field->ofs);
-	switch (field->type)
-	{
-	case F_LSTRING:
-		if ( *(char **)p )
-		{
-			len = strlen(*(char **)p) + 1;
-			fwrite (*(char **)p, len, 1, f);
-		}
-		break;
-	}
-}
-
-void ReadField (FILE *f, field_t *field, byte *base)
-{
-	void		*p;
-	int			len;
-	int			index;
-
-	if (field->flags & FFL_SPAWNTEMP)
-		return;
-
-	p = (void *)(base + field->ofs);
-	switch (field->type)
-	{
-	case F_INT:
-	case F_FLOAT:
-	case F_ANGLEHACK:
-	case F_VECTOR:
-	case F_IGNORE:
-		break;
-
-	case F_LSTRING:
-		len = *(int *)p;
-		if (!len)
-			*(char **)p = NULL;
-		else
-		{
-			*(char **)p = gi.TagMalloc (len, TAG_LEVEL);
-			fread (*(char **)p, len, 1, f);
-		}
-		break;
-	case F_EDICT:
-		index = *(int *)p;
-		if ( index == -1 )
-			*(edict_t **)p = NULL;
-		else
-			*(edict_t **)p = &g_edicts[index];
-		break;
-	case F_CLIENT:
-		index = *(int *)p;
-		if ( index == -1 )
-			*(gclient_t **)p = NULL;
-		else
-			*(gclient_t **)p = &game.clients[index];
-		break;
-	case F_ITEM:
-		index = *(int *)p;
-		if ( index == -1 )
-			*(gitem_t **)p = NULL;
-		else
-			*(gitem_t **)p = &itemlist[index];
-		break;
-
-	case F_CAST_MEMORY:
-		index = *(int *)p;
-		if ( index == -1 )
-			*(cast_memory_t **)p = NULL;
-		else
-			*(cast_memory_t **)p = &g_cast_memory[index];
-		break;
-
-	//relative to code segment
-	case F_FUNCTION:
-		index = *(int *)p;
-		if ( index == 0 )
-			*(byte **)p = NULL;
-		else
-			*(byte **)p = ((byte *)InitGame) + index;
-		break;
-
-	//relative to data segment
-	case F_MMOVE:
-		index = *(int *)p;
-		if (index == 0)
-			*(byte **)p = NULL;
-		else
-			*(byte **)p = (byte *)&mmove_reloc + index;
-		break;
-
-	default:
-		gi.error ("ReadEdict: unknown field type");
+		/*
+			enable kpded2 features:
+			GMF_CLIENTPOV - improved eyecam chase mode
+			GMF_CLIENTTEAM - team info in server browsers
+			GMF_CLIENTNOENTS - removes everything when spectating is disabled
+			GMF_WANT_ALL_DISCONNECTS - cancelled connection notifications
+		*/
+		char buf[10];
+		sprintf(buf, "%d", GMF_CLIENTPOV | GMF_CLIENTNOENTS | GMF_WANT_ALL_DISCONNECTS | (teamplay->value ? GMF_CLIENTTEAM : 0));
+		gi.cvar_forceset("g_features", buf);
 	}
 }
 
 //=========================================================
 
-/*
-==============
-WriteClient
-
-All pointer variables (except function pointers) must be handled specially.
-==============
-*/
-void WriteClient (FILE *f, gclient_t *client)
-{
-	field_t		*field;
-	gclient_t	temp;
-	
-	// all of the ints, floats, and vectors stay as they are
-	temp = *client;
-
-	// change the pointers to lengths or indexes
-	for (field=clientfields ; field->name ; field++)
-	{
-		WriteField1 (f, field, (byte *)&temp);
-	}
-
-	// write the block
-	fwrite (&temp, sizeof(temp), 1, f);
-
-	// now write any allocated data following the edict
-	for (field=clientfields ; field->name ; field++)
-	{
-		WriteField2 (f, field, (byte *)client);
-	}
-}
-
-/*
-==============
-ReadClient
-
-All pointer variables (except function pointers) must be handled specially.
-==============
-*/
-void ReadClient (FILE *f, gclient_t *client)
-{
-	field_t		*field;
-
-	fread (client, sizeof(*client), 1, f);
-
-	for (field=clientfields ; field->name ; field++)
-	{
-		ReadField (f, field, (byte *)client);
-	}
-}
-
-/*
-============
-WriteGame
-
-This will be called whenever the game goes to a new level,
-and when the user explicitly saves the game.
-
-Game information include cross level data, like multi level
-triggers, help computer info, and all client states.
-
-A single player death will automatically restore from the
-last save position.
-============
-*/
 void WriteGame (char *filename, qboolean autosave)
 {
-	FILE	*f;
-	int		i;
-	char	str[16];
-
-	if (!autosave)
-		SaveClientData ();
-
-	f = fopen (filename, "wb");
-	if (!f)
-		gi.error ("Couldn't open %s", filename);
-
-	memset (str, 0, sizeof(str));
-	strcpy (str, __DATE__);
-	fwrite (str, sizeof(str), 1, f);
-
-	game.autosaved = autosave;
-	fwrite (&game, sizeof(game), 1, f);
-	game.autosaved = false;
-
-	for (i=0 ; i<game.maxclients ; i++)
-		WriteClient (f, &game.clients[i]);
-
-	fclose (f);
+	// not needed in deathmatch
 }
 
 void ReadGame (char *filename)
 {
-	FILE	*f;
-	int		i;
-	char	str[16];
-
-	gi.FreeTags (TAG_GAME);
-
-	f = fopen (filename, "rb");
-	if (!f)
-		gi.error ("Couldn't open %s", filename);
-
-	fread (str, sizeof(str), 1, f);
-	if (strcmp (str, __DATE__))
-	{
-		fclose (f);
-		gi.error ("Savegame from an older version.\n");
-	}
-
-	g_edicts =  gi.TagMalloc (game.maxentities * sizeof(g_edicts[0]), TAG_GAME);
-	globals.edicts = g_edicts;
-
-	g_cast_memory = gi.TagMalloc (MAX_CHARACTERS * MAX_CHARACTERS * sizeof(cast_memory_t), TAG_GAME );
-	memset( g_cast_memory, 0, MAX_CHARACTERS * MAX_CHARACTERS * sizeof(cast_memory_t) );
-
-	g_cast_groups = gi.TagMalloc (MAX_CAST_GROUPS * sizeof(cast_group_t), TAG_GAME );
-	memset( g_cast_groups, 0, MAX_CAST_GROUPS * sizeof(cast_group_t) );
-
-	fread (&game, sizeof(game), 1, f);
-	game.clients = gi.TagMalloc (game.maxclients * sizeof(game.clients[0]), TAG_GAME);
-	for (i=0 ; i<game.maxclients ; i++)
-		ReadClient (f, &game.clients[i]);
-
-	fclose (f);
+	// not needed in deathmatch
 }
 
-//==========================================================
-
-
-/*
-==============
-WriteEdict
-
-All pointer variables (except function pointers) must be handled specially.
-==============
-*/
-void WriteEdict (FILE *f, edict_t *ent)
-{
-	field_t		*field;
-	edict_t		temp;
-
-	// all of the ints, floats, and vectors stay as they are
-	temp = *ent;
-
-	// change the pointers to lengths or indexes
-	for (field=fields ; field->name ; field++)
-	{
-		WriteField1 (f, field, (byte *)&temp);
-	}
-
-	temp.last_voice = NULL;	// this can't be saved
-
-	// write the block
-	fwrite (&temp, sizeof(temp), 1, f);
-
-	// now write any allocated data following the edict
-	for (field=fields ; field->name ; field++)
-	{
-		WriteField2 (f, field, (byte *)ent);
-	}
-
-}
-
-/*
-==============
-WriteLevelLocals
-
-All pointer variables (except function pointers) must be handled specially.
-==============
-*/
-void WriteLevelLocals (FILE *f)
-{
-	field_t		*field;
-	level_locals_t		temp;
-
-	// all of the ints, floats, and vectors stay as they are
-	temp = level;
-
-	// change the pointers to lengths or indexes
-	for (field=levelfields ; field->name ; field++)
-	{
-		WriteField1 (f, field, (byte *)&temp);
-	}
-
-	// write the block
-	fwrite (&temp, sizeof(temp), 1, f);
-
-	// now write any allocated data following the edict
-	for (field=levelfields ; field->name ; field++)
-	{
-		WriteField2 (f, field, (byte *)&level);
-	}
-}
-
-/*
-==============
-WriteCastMemories
-==============
-*/
-void WriteCastMemories (FILE *f)
-{
-	field_t		*field;
-	cast_memory_t	temp;
-	int			i, j, out;
-
-	for (i=0; i<MAX_CHARACTERS; i++)
-	{
-		for (j=0; j<MAX_CHARACTERS; j++)
-		{
-			if (!g_cast_memory[i * MAX_CHARACTERS + j].cast_ent)
-				continue;
-
-			memcpy( &temp, &(g_cast_memory[i * MAX_CHARACTERS + j]), sizeof(cast_memory_t) );
-
-			// write the index number
-			out = i * MAX_CHARACTERS + j;
-			fwrite (&out, sizeof(out), 1, f);
-
-			// change the pointers to lengths or indexes
-			for (field=castmemoryfields ; field->name ; field++)
-			{
-				WriteField1 (f, field, (byte *)(&temp));
-			}
-
-			// write the block
-			fwrite (&temp, sizeof(cast_memory_t), 1, f);
-
-			// now write any allocated data following the edict
-			for (field=castmemoryfields ; field->name ; field++)
-			{
-				WriteField2 (f, field, (byte *)(&(g_cast_memory[i * MAX_CHARACTERS + j])));
-			}
-
-		}
-	}
-
-	out = -1;
-	fwrite (&out, sizeof(out), 1, f);
-}
-
-/*
-==============
-WriteCastGroups
-==============
-*/
-void WriteCastGroups (FILE *f)
-{
-	// write the block
-	fwrite (g_cast_groups, sizeof(cast_group_t) * MAX_CAST_GROUPS, 1, f);
-}
-
-/*
-==============
-ReadCastGroups
-==============
-*/
-void ReadCastGroups (FILE *f)
-{
-	// write the block
-	fread (g_cast_groups, sizeof(cast_group_t) * MAX_CAST_GROUPS, 1, f);
-}
-
-
-/*
-==============
-ReadEdict
-
-All pointer variables (except function pointers) must be handled specially.
-==============
-*/
-void ReadEdict (FILE *f, edict_t *ent)
-{
-	field_t		*field;
-
-	// Ridah, save the object_bounds
-	int		object_bounds[MAX_MODEL_PARTS][MAX_MODELPART_OBJECTS];
-	int		i;
-
-	for (i=0; i<MAX_MODEL_PARTS; i++)
-		memcpy( object_bounds[i], ent->s.model_parts[i].object_bounds, sizeof(int)*MAX_MODELPART_OBJECTS );
-
-	fread (ent, sizeof(*ent), 1, f);
-
-	for (field=fields ; field->name ; field++)
-	{
-		ReadField (f, field, (byte *)ent);
-	}
-
-	// Ridah, restore object_bounds
-	for (i=0; i<MAX_MODEL_PARTS; i++)
-		memcpy( ent->s.model_parts[i].object_bounds, object_bounds[i], sizeof(int)*MAX_MODELPART_OBJECTS );
-}
-
-/*
-==============
-ReadLevelLocals
-
-All pointer variables (except function pointers) must be handled specially.
-==============
-*/
-void ReadLevelLocals (FILE *f)
-{
-	field_t		*field;
-	
-	int			i, j;
-
-	fread (&level, sizeof(level), 1, f);
-
-	for (field=levelfields ; field->name ; field++)
-	{
-		ReadField (f, field, (byte *)&level);
-	}
-
-	// setup the global cast memory
-	for (i=0; i<MAX_CHARACTERS; i++)
-	{
-		for (j=0; j<MAX_CHARACTERS; j++)
-		{
-			if (g_cast_memory[i * MAX_CHARACTERS + j].cast_ent)
-			{
-				level.global_cast_memory[i][j] = &(g_cast_memory[i * MAX_CHARACTERS + j]);
-			}
-		}
-	}
-}
-
-/*
-==============
-ReadCastMemories
-
-All pointer variables (except function pointers) must be handled specially.
-==============
-*/
-void ReadCastMemories (FILE *f)
-{
-	field_t		*field;
-	int			i;
-
-	while (1)
-	{
-		fread (&i, sizeof(i), 1, f);
-
-		if (i < 0)
-			break;
-
-		fread (&(g_cast_memory[i]), sizeof(cast_memory_t), 1, f);
-
-		for (field=castmemoryfields ; field->name ; field++)
-		{
-			ReadField (f, field, (byte *)&(g_cast_memory[i]) );
-		}
-	}
-}
-
-/*
-=================
-WriteLevel
-
-=================
-*/
 void WriteLevel (char *filename)
 {
-	int		i;
-	edict_t	*ent;
-	FILE	*f;
-	void	*base;
-// BEGIN:	Xatrix/Ridah/Navigator/18-apr-1998
-	active_node_data_t *node_data;
-// END:		Xatrix/Ridah/Navigator/18-apr-1998
-
-	f = fopen (filename, "wb");
-	if (!f)
-		gi.error ("Couldn't open %s", filename);
-
-// BEGIN:	Xatrix/Ridah/Navigator/18-apr-1998
-	// don't save the nav data
-	node_data = level.node_data;
-	level.node_data = NULL;
-// END:		Xatrix/Ridah/Navigator/18-apr-1998
-
-	// write out edict size for checking
-	i = sizeof(edict_t);
-	fwrite (&i, sizeof(i), 1, f);
-
-	// write out a function pointer for checking
-	base = (void *)InitGame;
-	fwrite (&base, sizeof(base), 1, f);
-
-	// write the team data
-	WriteCastGroups (f);
-
-	// write out the cast_memory data
-	WriteCastMemories (f);
-
-	// write out level_locals_t
-	WriteLevelLocals (f);
-
-	// write out all the entities
-	for (i=0 ; i<globals.num_edicts ; i++)
-	{
-		ent = &g_edicts[i];
-		if (!ent->inuse)
-			continue;
-		fwrite (&i, sizeof(i), 1, f);
-		WriteEdict (f, ent);
-	}
-	i = -1;
-	fwrite (&i, sizeof(i), 1, f);
-
-
-	// write the cast_memory data
-
-
-	fclose (f);
-
-// BEGIN:	Xatrix/Ridah/Navigator/18-apr-1998
-	// restore the nav data
-	level.node_data = node_data;
-// END:		Xatrix/Ridah/Navigator/18-apr-1998
-
+	// not needed in deathmatch
 }
-
-
-/*
-=================
-ReadLevel
-
-SpawnEntities will allready have been called on the
-level the same way it was when the level was saved.
-
-That is necessary to get the baselines
-set up identically.
-
-The server will have cleared all of the world links before
-calling ReadLevel.
-
-No clients are connected yet.
-=================
-*/
-
-qboolean	changing_levels=false;
 
 void ReadLevel (char *filename)
 {
-	int		entnum;
-	FILE	*f;
-	int		i;
-	void	*base;
-	edict_t	*ent;
-
-// BEGIN:	Xatrix/Ridah/Navigator/18-apr-1998
-	// restore nav data
-	active_node_data_t *node_data;
-// END:		Xatrix/Ridah/Navigator/18-apr-1998
-
-	f = fopen (filename, "rb");
-	if (!f)
-		gi.error ("Couldn't open %s", filename);
-
-	// free any dynamic memory allocated by loading the level
-	// base state
-	gi.FreeTags (TAG_LEVEL);
-
-	gi.ClearObjectBoundsCached();	// make sure we wipe the cached list
-
-	num_object_bounds = 0;
-	memset (g_objbnds, 0, sizeof(g_objbnds));
-
-	// wipe all the entities
-	memset (g_edicts, 0, game.maxentities*sizeof(g_edicts[0]));
-	globals.num_edicts = maxclients->value+1;
-
-	memset( g_cast_memory, 0, MAX_CHARACTERS * MAX_CHARACTERS * sizeof(cast_memory_t) );
-	memset( g_cast_groups, 0, MAX_CAST_GROUPS * sizeof(cast_group_t) );
-
-	// check edict size
-	fread (&i, sizeof(i), 1, f);
-	if (i != sizeof(edict_t))
-	{
-		fclose (f);
-		gi.error ("ReadLevel: mismatched edict size");
-	}
-
-	// check function pointer base address
-	fread (&base, sizeof(base), 1, f);
-#ifdef _WIN32
-	if (base != (void *)InitGame)
-	{
-		fclose (f);
-		gi.error ("ReadLevel: function pointers have moved");
-	}
-#else
-	gi.dprintf("Function offsets %d\n", ((byte *)base) - ((byte *)InitGame));
-#endif
-
-// BEGIN:	Xatrix/Ridah/Navigator/18-apr-1998
-	// save nav data
-	node_data = level.node_data;
-	level.node_data = NULL;
-// END:		Xatrix/Ridah/Navigator/18-apr-1998
-
-	// read the team data
-	ReadCastGroups (f);
-
-	// load the cast memories
-	ReadCastMemories (f);
-
-	// load the level locals
-	ReadLevelLocals (f);
-
-// BEGIN:	Xatrix/Ridah/Navigator/18-apr-1998
-	// restore nav data
-	level.node_data = node_data;
-
-	// upon changing levels, the nav data is cleared, but when loading or starting a new game,
-	// the node data is loading in SpawnEntities()
-	if (!node_data)
-	{
-		level.node_data = gi.TagMalloc (sizeof (active_node_data_t), TAG_GAME);
-		NAV_ReadActiveNodes (level.node_data, level.mapname);
-	}
-// END:		Xatrix/Ridah/Navigator/18-apr-1998
-
-	// load all the entities
-	while (1)
-	{
-
-		if (fread (&entnum, sizeof(entnum), 1, f) != 1)
-		{
-			fclose (f);
-			gi.error ("ReadLevel: failed to read entnum");
-		}
-		if (entnum == -1)
-			break;
-		if (entnum >= globals.num_edicts)
-			globals.num_edicts = entnum+1;
-
-		ent = &g_edicts[entnum];
-
-		ReadEdict (f, ent);
-
-		// Ridah, restore the object bounds data
-		for (i=0; i<MAX_MODEL_PARTS; i++)
-		{
-			if (ent->s.model_parts[i].objectbounds_filename)
-			{
-				gi.GetObjectBounds( ent->s.model_parts[i].objectbounds_filename, &ent->s.model_parts[i] );
-			}
-		}
-
-// BEGIN:	Xatrix/Ridah/Navigator/16-apr-1998
-		// Init Navigational data for this entity
-		ent->active_node_data = level.node_data;
-		ent->nav_data.cache_node = -1;
-		ent->nav_build_data = NULL;		// make sure it's null, since it'll be set in ClientConnect() anyway
-// END:		Xatrix/Ridah/Navigator/16-apr-1998
-
-		// let the server rebuild world links for this ent
-		memset (&ent->area, 0, sizeof(ent->area));
-		gi.linkentity (ent);
-	}
-
-	fclose (f);
-
-	// mark all clients as unconnected
-	for (i=0 ; i<maxclients->value ; i++)
-	{
-		ent = &g_edicts[i+1];
-		ent->client = game.clients + i;
-		ent->client->pers.connected = false;
-	}
-
-	// init the characters array (we'll set it manually
-	memset( level.characters, 0, 4 * MAX_CHARACTERS );
-
-	// always set the client first
-	level.characters[0] = &g_edicts[1];
-
-	// do any load time things at this point
-	for (i=0 ; i<globals.num_edicts ; i++)
-	{
-		ent = &g_edicts[i];
-
-		if (!ent->inuse)
-			continue;
-
-		// set the character array
-		if (((ent->svflags & SVF_MONSTER) && (ent->character_index > 0)) || ent->client)
-		{
-			level.characters[ent->character_index] = ent;
-		}
-
-		// fire any cross-level triggers
-		if (ent->classname)
-			if (strcmp(ent->classname, "target_crosslevel_target") == 0)
-				ent->nextthink = level.time + ent->delay;
-
-		// JOSEPH 19-JAN-99
-		// Restore rotating train absmax absmin
-		if (!strcmp(ent->classname, "func_train_rotating"))
-		{
-			float		max, v;
-			int			i;
-
-			max = 0;
-			for (i=0 ; i<3 ; i++)
-			{
-				v =fabs(ent->mins[i]);
-				if (v > max)
-					max = v;
-				v =fabs(ent->maxs[i]);
-				if (v > max)
-					max = v;
-			}
-			for (i=0 ; i<3 ; i++)
-			{
-				ent->absmin[i] = ent->s.origin[i] - max;
-				ent->absmax[i] = ent->s.origin[i] + max;
-			}
-		}
-		// END JOSEPH		
-
-		// Ridah, restore nextthink times for rain/snow clouds so they send the message to clients (this is ugly, but should work)
-		if (	!strcmp( ent->classname, "elements_raincloud" )
-			||	!strcmp( ent->classname, "elements_snowcloud" ))
-		{
-			ent->nextthink = level.time + (10 * FRAMETIME);
-		}
-	}
-
-
-	if (changing_levels)
-	{
-		int	i;
-		edict_t	*e;
-
-		// kill any followers
-		for (i=0; i<level.num_characters; i++)
-		{
-			e = level.characters[i];
-
-			if (!e)
-				continue;
-
-			if (e->flags & FL_FOLLOWING)
-			{
-				// vanish!
-				AI_UnloadCastMemory( e );
-				G_FreeEdict( e );
-			}
-		}
-
-	}
-	else	// clear any following flags
-	{
-		int	i;
-		edict_t	*e;
-
-		// kill any followers
-		for (i=0; i<level.num_characters; i++)
-		{
-			e = level.characters[i];
-
-			if (!e)
-				continue;
-
-			e->flags &= ~FL_FOLLOWING;
-		}
-	}
-
+	// not needed in deathmatch
 }

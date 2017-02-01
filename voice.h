@@ -31,10 +31,6 @@ extern int gameinc;
 
 extern float	last_client_talk;		// records the last time the client was spoken to, so AI characters don't all respond at once
 
-// this list is kept so we can make sure the soundindex of each voice item is cleared when starting a new level
-extern voice_table_t *precached_voices[MAX_SOUNDS];
-extern int	num_precached_voices;
-
 void Voice_Random( edict_t *self, edict_t *other, voice_table_t *voice_table, int num_entries );
 void Voice_Specific( edict_t *self, edict_t *other, voice_table_t *voice_table, int entry );
 // JOSEPH 13-FEB-99

@@ -20,37 +20,11 @@ static void P_ProjectSource (gclient_t *client, vec3_t point, vec3_t distance, v
 	VectorCopy (distance, _distance);
 /*	if (client->pers.hand == LEFT_HANDED)
 		_distance[1] *= -1;
-	else if (client->pers.hand == CENTER_HANDED)
-		_distance[1] = 0;*/
-	_distance[1]=0;
+	else if (client->pers.hand == CENTER_HANDED)*/
+		_distance[1] = 0;
 	G_ProjectSource (point, _distance, forward, right, result);
 }
 
-
-/*
-===============
-PlayerNoise
-
-Each player can have two noise objects associated with it:
-a personal noise (jumping, pain, weapon firing), and a weapon
-target noise (bullet wall impacts)
-
-Monsters that don't directly see the player can move
-to a noise in hopes of seeing the player from there.
-===============
-*/
-void PlayerNoise(edict_t *who, vec3_t where, int type)
-{
-
-	if (deathmatch->value && type != PNOISE_WEAPON)
-		return;
-
-	VectorCopy( who->s.origin, who->noise_pos );
-	who->noise_time = level.time + 2;
-	who->noise_type = type;
-	VectorCopy( who->s.angles, who->noise_angles );
-
-}
 
 #define MAX_PISTOL_ROUNDS		10
 #define MAX_TOMMYGUN_ROUNDS		50
@@ -106,7 +80,7 @@ qboolean Pickup_Weapon (edict_t *ent, edict_t *other)
 
 	index = ITEM_INDEX(ent->item);
 
-	if ( ( ((int)(dmflags->value) & DF_WEAPONS_STAY) || coop->value) 
+	if ( ( ((int)(dmflags->value) & DF_WEAPONS_STAY) || coop_value) 
 		&& other->client->pers.inventory[index])
 	{
 		if (!(ent->spawnflags & (DROPPED_ITEM | DROPPED_PLAYER_ITEM) ) )
@@ -120,14 +94,14 @@ qboolean Pickup_Weapon (edict_t *ent, edict_t *other)
 	//other->client->pers.inventory[index]++;
 	other->client->pers.inventory[index] = 1;
 
-    //if they pick weapon up make them mortal
-    other->client->invincible_framenum = 0;
+	//if they pick weapon up make them mortal
+	other->client->invincible_framenum = 0;
 
 	if (ent->item->ammo && !(ent->spawnflags & DROPPED_ITEM) )
 	{
 		// give them some ammo with it
 		ammo = FindItem (ent->item->ammo);
-		if ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value )
+		if ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value )
 			Add_Ammo (other, ammo, 1000);
 		else
 			Add_Ammo (other, ammo, ammo->quantity);
@@ -137,14 +111,14 @@ qboolean Pickup_Weapon (edict_t *ent, edict_t *other)
 
 		if (! (ent->spawnflags & DROPPED_PLAYER_ITEM) )
 		{
-			if (deathmatch->value)
+			if (deathmatch_value)
 			{
 				if ((int)(dmflags->value) & DF_WEAPONS_STAY)
 					ent->flags |= FL_RESPAWN;
 				else
 					SetRespawn (ent, 30);
 			}
-			if (coop->value)
+			if (coop_value)
 				ent->flags |= FL_RESPAWN;
 		}
 	}
@@ -152,14 +126,14 @@ qboolean Pickup_Weapon (edict_t *ent, edict_t *other)
 	{
 		if (! (ent->spawnflags & DROPPED_PLAYER_ITEM) )
 		{
-			if (deathmatch->value)
+			if (deathmatch_value)
 			{
 				if ((int)(dmflags->value) & DF_WEAPONS_STAY)
 					ent->flags |= FL_RESPAWN;
 				else
 					SetRespawn (ent, 30);
 			}
-			if (coop->value)
+			if (coop_value)
 				ent->flags |= FL_RESPAWN;
 		}
 	}
@@ -170,11 +144,11 @@ qboolean Pickup_Weapon (edict_t *ent, edict_t *other)
 	/*
 	if (other->client->pers.weapon != ent->item && 
 		(other->client->pers.inventory[index] == 1) &&
-		( !deathmatch->value || other->client->pers.weapon == FindItem("Pipe") ) )
+		( !deathmatch_value || other->client->pers.weapon == FindItem("Pipe") ) )
 		other->client->newweapon = ent->item;
 	*/
 	
-	if (deathmatch->value)
+	if (deathmatch_value)
 	{
 		if (other->client->pers.weapon != ent->item && auto_reload && (other->client->pers.weapon == FindItem ("Pistol") || other->client->pers.weapon == FindItem ("Pipe") ))
 			other->client->newweapon = ent->item;
@@ -275,7 +249,8 @@ void ChangeWeapon (edict_t *ent)
 	ent->client->machinegun_shots = 0;
 
 	// set visible model
-	if (ent->s.modelindex == 255) {
+	if (ent->s.modelindex == 255)
+	{
 		if (ent->client->pers.weapon)
 			i = (((QweryClipIndex(ent->client->pers.weapon)+1) & 0xff) << 8);
 		else
@@ -299,9 +274,6 @@ void ChangeWeapon (edict_t *ent)
 	
 	// ent->client->flashlight = false;
 
-	// RAFAEL	28-dec-98
-	ent->client->gun_noise = false;
-	
 	if (ent->client->pers.weapon)
 		ChangeClipIndex (ent);
 	
@@ -402,7 +374,7 @@ void ChangeWeapon (edict_t *ent)
 			*/
 
 			//posible conflict - tical
-            ent->client->ps.num_parts++;
+			ent->client->ps.num_parts++;
 			ent->client->ps.model_parts[PART_GUN2].modelindex = gi.modelindex("models/weapons/v_rocket_launcher/clip.mdx");
 			for (i=0; i<MAX_MODELPART_OBJECTS; i++)
 				ent->client->ps.model_parts[PART_GUN2].skinnum[i] = 0; // will we have more than one skin???		
@@ -577,53 +549,52 @@ NoAmmoWeaponChange
 */
 void NoAmmoWeaponChange (edict_t *ent)
 {
-
-	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("grenades"))]
-		&&  ent->client->pers.inventory[ITEM_INDEX(FindItem("grenade launcher"))] )
+	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("grenade launcher"))] 
+		&& (ent->client->pers.weapon_clip[CLIP_GRENADES] || ent->client->pers.inventory[ITEM_INDEX(FindItem("grenades"))]) )
 	{
 		ent->client->newweapon = FindItem ("grenade launcher");
 		return;
 	}
 
 	// JOSEPH 16-APR-99
-	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("308cal"))]
-		&&  ent->client->pers.inventory[ITEM_INDEX(FindItem("heavy machinegun"))] )
+	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("heavy machinegun"))]
+		&& (ent->client->pers.weapon_clip[CLIP_SLUGS] || ent->client->pers.inventory[ITEM_INDEX(FindItem("308cal"))]) )
 	{
 		ent->client->newweapon = FindItem ("heavy machinegun");
 		return;
 	}
 	// END JOSEPH
 
-	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("gas"))]
-		&&  ent->client->pers.inventory[ITEM_INDEX(FindItem("flamethrower"))] )
+	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("flamethrower"))]
+		&& ent->client->pers.inventory[ITEM_INDEX(FindItem("gas"))] )
 	{
 		ent->client->newweapon = FindItem ("flamethrower");
 		return;
 	}
 	
-	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("rockets"))]
-		&&  ent->client->pers.inventory[ITEM_INDEX(FindItem("bazooka"))] )
+	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("bazooka"))]
+		&& (ent->client->pers.weapon_clip[CLIP_ROCKETS] || ent->client->pers.inventory[ITEM_INDEX(FindItem("rockets"))]) )
 	{
 		ent->client->newweapon = FindItem ("Bazooka");
 		return;
 	}
 	
-	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("bullets"))]
-		&&  ent->client->pers.inventory[ITEM_INDEX(FindItem("tommygun"))] )
+	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("tommygun"))]
+		&& (ent->client->pers.weapon_clip[CLIP_TOMMYGUN] || ent->client->pers.inventory[ITEM_INDEX(FindItem("bullets"))]) )
 	{
 		ent->client->newweapon = FindItem ("tommygun");
 		return;
 	}
 	
-	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("shells"))]
-		&&  ent->client->pers.inventory[ITEM_INDEX(FindItem("shotgun"))] )
+	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("shotgun"))]
+		&& (ent->client->pers.weapon_clip[CLIP_SHOTGUN] || ent->client->pers.inventory[ITEM_INDEX(FindItem("shells"))]) )
 	{
 		ent->client->newweapon = FindItem ("shotgun");
 		return;
 	}
 			
-	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("bullets"))]
-		&&  ent->client->pers.inventory[ITEM_INDEX(FindItem("pistol"))] )
+	if ( ent->client->pers.inventory[ITEM_INDEX(FindItem("pistol"))]
+		&& (ent->client->pers.weapon_clip[CLIP_PISTOL] || ent->client->pers.inventory[ITEM_INDEX(FindItem("bullets"))]) )
 	{
 		ent->client->newweapon = FindItem ("pistol");
 		return;
@@ -706,19 +677,6 @@ void Think_Weapon (edict_t *ent)
 		ChangeWeapon (ent);
 	}
 	
-	// JOSEPH 10-FEB-99
-	if (level.bar_lvl)
-		return;
-	// END JOSEPH
-
-	// Unholster a holstered gun if fired 
-/*	if ((!ent->client->pers.weapon) && ent->client->pers.holsteredweapon && (((ent->client->latched_buttons|ent->client->buttons) & BUTTON_ATTACK)))
-	{
-		ent->client->newweapon = ent->client->pers.holsteredweapon;
-		ChangeWeapon (ent);
-		ent->client->pers.holsteredweapon = 0;
-	}
-	else */
 	if (ent->client->pers.weapon && ent->client->pers.weapon->weaponthink)
 	{
 		is_quad = (ent->client->quad_framenum > level.framenum);
@@ -973,7 +931,7 @@ void Weapon_Generic (edict_t *ent, int FRAME_ACTIVATE_LAST, int FRAME_FIRE_LAST,
 		ent->client->ps.gunframe++;
 
 		// Ridah, faster weapon changing in deathmatch
-		if (deathmatch->value && ent->client->ps.gunframe < FRAME_DEACTIVATE_LAST)
+		if (deathmatch_value && ent->client->ps.gunframe < FRAME_DEACTIVATE_LAST)
 			ent->client->ps.gunframe++;
 
 		return;
@@ -991,7 +949,7 @@ void Weapon_Generic (edict_t *ent, int FRAME_ACTIVATE_LAST, int FRAME_FIRE_LAST,
 		ent->client->ps.gunframe++;
 
 		// Ridah, faster weapon changing in deathmatch
-		if (deathmatch->value && ent->client->ps.gunframe < FRAME_ACTIVATE_LAST)
+		if (deathmatch_value && ent->client->ps.gunframe < FRAME_ACTIVATE_LAST)
 			ent->client->ps.gunframe++;
 
 		return;
@@ -1067,7 +1025,7 @@ void Weapon_Generic (edict_t *ent, int FRAME_ACTIVATE_LAST, int FRAME_FIRE_LAST,
 			{
 				if (level.time >= ent->pain_debounce_time)
 				{
-					gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+					gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 					ent->pain_debounce_time = level.time + 1;
 				}
 				NoAmmoWeaponChange (ent);
@@ -1197,7 +1155,7 @@ void weapon_grenade_fire (edict_t *ent, qboolean held)
 	speed = GRENADE_MINSPEED + (GRENADE_TIMER - timer) * ((GRENADE_MAXSPEED - GRENADE_MINSPEED) / GRENADE_TIMER);
 	fire_grenade2 (ent, start, forward, damage, speed, timer, radius, held);
 
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value ) )
+	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value ) )
 		ent->client->pers.inventory[ent->client->ammo_index]--;
 
 	ent->client->grenade_time = level.time + 1.0;
@@ -1247,7 +1205,7 @@ void Weapon_Grenade (edict_t *ent)
 			{
 				if (level.time >= ent->pain_debounce_time)
 				{
-					gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+					gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 					ent->pain_debounce_time = level.time + 1;
 				}
 				NoAmmoWeaponChange (ent);
@@ -1367,7 +1325,7 @@ void Eject_Shotgun_Shell (edict_t *ent)
 	if (!(ent->client))
 		return;
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		return;
 
 	//gi.dprintf("angles = %s\n", vtos(ent->s.angles));
@@ -1451,8 +1409,6 @@ void Blackjack_Hit (edict_t *ent, vec3_t vorigin, int damage)
 		ent->client->ps.rdflags |= RDF_SKINPLUS;
 	
 	
-//	PlayerNoise(ent, start, PNOISE_WEAPON);
-
 	gi.WriteByte (svc_muzzleflash);
 	gi.WriteShort (ent-g_edicts);
 	gi.WriteByte (MZ_BLACKJACK_SWING);
@@ -1463,7 +1419,7 @@ void Weapon_Blackjack_Hit (edict_t *ent)
 {
 	int		damage;
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		damage = 10;
 	else
 		damage = 8;// - (int)(skill->value-1);
@@ -1520,8 +1476,6 @@ void Crowbar_Hit (edict_t *ent, vec3_t vorigin, int damage)
 		ent->client->ps.rdflags |= RDF_SKINPLUS;
 	
 	
-//	PlayerNoise(ent, start, PNOISE_WEAPON);
-
 	gi.WriteByte (svc_muzzleflash);
 	gi.WriteShort (ent-g_edicts);
 	gi.WriteByte (MZ_CROWBAR_SWING);
@@ -1532,7 +1486,7 @@ void Weapon_Crowbar_Hit (edict_t *ent)
 {
 	int		damage;
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		damage = 50;	// This should be very powerful in deathmatch
 	else
 		damage = 12;// - (int)(skill->value-1);
@@ -1572,7 +1526,7 @@ void Eject_Pistol_Shell (edict_t *ent)
 	if (!(ent->client))
 		return;
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		return;
 
 	//gi.dprintf("angles = %s\n", vtos(ent->s.angles));
@@ -1629,7 +1583,7 @@ void Eject_Tommy_Shell (edict_t *ent)
 	if (!(ent->client))
 		return;
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		return;
 
 	//gi.dprintf("angles = %s\n", vtos(ent->s.angles));
@@ -1715,15 +1669,10 @@ void Pistol_Fire (edict_t *ent, vec3_t vorigin, int damage)
 		gi.multicast (ent->s.origin, MULTICAST_PVS);
 	}
 	
-	PlayerNoise(ent, start, PNOISE_WEAPON);
-
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value ) )
+	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value ) )
 	{
 		ent->client->pers.weapon_clip[ent->client->clip_index]--;
 	}
-
-	ent->client->gun_noise = true;
-
 }
 
 void Weapon_Pistol_Fire (edict_t *ent)
@@ -1734,7 +1683,7 @@ void Weapon_Pistol_Fire (edict_t *ent)
 
 	if (ent->waterlevel >= 2)
 	{
-		// gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
+		// gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
 		if (ent->client->weaponstate == WEAPON_FIRING)
 		{
 			ent->client->weaponstate = WEAPON_READY;
@@ -1743,7 +1692,7 @@ void Weapon_Pistol_Fire (edict_t *ent)
 		return;
 	}
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		damage = 15;
 	else
 		damage = 10;
@@ -1774,6 +1723,8 @@ void Weapon_Pistol_Fire (edict_t *ent)
 	{
 		if (!ent->client->pers.weapon_clip[ent->client->clip_index])
 		{
+			ent->client->reload_weapon = false;
+			ent->client->weaponstate = WEAPON_RELOADING;
 			
 			if (ent->client->pers.inventory[ent->client->ammo_index] < MAX_PISTOL_ROUNDS)
 			{
@@ -1788,13 +1739,13 @@ void Weapon_Pistol_Fire (edict_t *ent)
 			if (ent->client->pers.pistol_mods & WEAPON_MOD_RELOAD)
 				;//gi.dprintf ("need fast reload sound\n");
 			else
-				gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/pistol/clip_out.wav"), 1, ATTN_NORM, 0);
+				gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/pistol/clip_out.wav"), 1, ATTN_NORM, 0);
 
 			if (! ent->client->pers.weapon_clip[ent->client->clip_index])
 			{
 				if (level.time >= ent->pain_debounce_time)
 				{
-					gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+					gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 					ent->pain_debounce_time = level.time + 1;
 				}
 				NoAmmoWeaponChange (ent);
@@ -1879,13 +1830,13 @@ void Weapon_Pistol (edict_t *ent)
 		ent->client->ps.model_parts[PART_BODY].invisible_objects = (1<<0 | 1<<1);
 
 	if (ent->client->ps.gunframe == 1)
-		gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/pistol/holster.wav"), 1, ATTN_NORM, 0);
+		gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/pistol/holster.wav"), 1, ATTN_NORM, 0);
 
 	if (ent->client->ps.gunframe == 11)
-		gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/pistol/clip_out.wav"), 1, ATTN_NORM, 0);
+		gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/pistol/clip_out.wav"), 1, ATTN_NORM, 0);
 
 	if (ent->client->ps.gunframe == 18)
-		gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/pistol/clip_in.wav"), 1, ATTN_NORM, 0);
+		gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/pistol/clip_in.wav"), 1, ATTN_NORM, 0);
 
 	if (ent->client->ps.gunframe >= 10 && ent->client->ps.gunframe <= 24) 
 	{
@@ -1927,21 +1878,20 @@ void SPistol_Fire (edict_t *ent, vec3_t vorigin, int damage)
 	gi.WriteByte (MZ_SPISTOL | is_silenced);
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value ) )
+	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value ) )
 		ent->client->pers.weapon_clip[ent->client->clip_index]--;
 
 	if (!ent->client->pers.weapon_clip[ent->client->clip_index] && !ent->client->pers.inventory[ ent->client->ammo_index])
 		{
 			if (level.time >= ent->pain_debounce_time)
 			{
-				gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+				gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 				ent->pain_debounce_time = level.time + 1;
 			}
 			NoAmmoWeaponChange (ent);
 		}
     
 	Eject_Pistol_Shell(ent);
-	ent->client->gun_noise = false;
 }
 
 
@@ -1953,7 +1903,7 @@ void Weapon_SPistol_Fire (edict_t *ent)
 
 	if (ent->waterlevel >= 2)
 	{
-		//gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
+		//gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
 		if (ent->client->weaponstate == WEAPON_FIRING)
 		{
 			ent->client->weaponstate = WEAPON_READY;
@@ -1962,7 +1912,7 @@ void Weapon_SPistol_Fire (edict_t *ent)
 		return;
 	}
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		damage = 15;
 	else
 		damage = 10;
@@ -1995,6 +1945,8 @@ void Weapon_SPistol_Fire (edict_t *ent)
 	{
 		if (!ent->client->pers.weapon_clip[ent->client->clip_index])
 		{
+			ent->client->reload_weapon = false;
+			ent->client->weaponstate = WEAPON_RELOADING;
 			
 			if (ent->client->pers.inventory[ent->client->ammo_index] < MAX_PISTOL_ROUNDS)
 			{
@@ -2009,13 +1961,13 @@ void Weapon_SPistol_Fire (edict_t *ent)
 			if (ent->client->pers.pistol_mods & WEAPON_MOD_RELOAD)
 				;//gi.dprintf ("need fast reload sound\n");
 			else
-				gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/pistol/clip_out.wav"), 1, ATTN_NORM, 0);
+				gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/pistol/clip_out.wav"), 1, ATTN_NORM, 0);
 
 			if (! ent->client->pers.weapon_clip[ent->client->clip_index])
 			{
 				if (level.time >= ent->pain_debounce_time)
 				{
-					gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+					gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 					ent->pain_debounce_time = level.time + 1;
 				}
 				NoAmmoWeaponChange (ent);
@@ -2057,11 +2009,6 @@ void Weapon_SPistol (edict_t *ent)
 			ent->client->ps.model_parts[PART_GUN].invisible_objects = (1<<0 | 1<<1);
 
 		ent->client->ps.model_parts[PART_BODY].invisible_objects = 0;
-	}
-	else if (ent->client->pers.holsteredweapon)
-	{
-		ent->client->ps.model_parts[PART_GUN].invisible_objects = (1<<0 | 1<<1);
-		ent->client->ps.model_parts[PART_BODY].invisible_objects = (1<<0 | 1<<1);
 	}
 	else
 	{
@@ -2144,7 +2091,7 @@ void Weapon_SPistol (edict_t *ent)
 	Weapon_Generic (ent, 20, 49, 65, 75, pause_frames, fire_frames, Weapon_SPistol_Fire);
 		
 	if (ent->client->ps.gunframe == 1)
-		gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/pistol/silencerattatch.wav"), 1, ATTN_NORM, 0);
+		gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/pistol/silencerattatch.wav"), 1, ATTN_NORM, 0);
 	
 	
 }
@@ -2172,7 +2119,7 @@ void Tommygun_Fire (edict_t *ent)
 
 	if (ent->waterlevel >= 2)
 	{
-		// gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
+		// gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
 		if (ent->client->weaponstate == WEAPON_FIRING)
 		{
 			ent->client->weaponstate = WEAPON_READY;
@@ -2189,7 +2136,7 @@ void Tommygun_Fire (edict_t *ent)
 		return;
 	}
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		damage *= 1.75;
 
 	if (ent->client->pers.inventory[ent->client->ammo_index] == 0 && ent->client->pers.weapon_clip[ent->client->clip_index] == 0) 
@@ -2234,10 +2181,8 @@ void Tommygun_Fire (edict_t *ent)
 	gi.WriteByte (MZ_MACHINEGUN | is_silenced);
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
-
 	// Disable for unlimited ammo
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value ) )
+	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value ) )
 	{
 		ent->client->pers.weapon_clip [ent->client->clip_index]--;
 
@@ -2250,14 +2195,12 @@ void Tommygun_Fire (edict_t *ent)
 		{
 			ent->client->reload_weapon = true;
 			ent->client->ps.gunframe = 30;		
-			// gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/machinegun/machgcock.wav"), 1, ATTN_NORM, 0);
+			// gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/machinegun/machgcock.wav"), 1, ATTN_NORM, 0);
 		}
 	}
 
-	if (!deathmatch->value)	// uses up bandwidth
+	if (!deathmatch_value)	// uses up bandwidth
     Eject_Tommy_Shell(ent);
-
-	ent->client->gun_noise = true;
 }
 
 void Weapon_Tommygun (edict_t *ent)
@@ -2271,7 +2214,7 @@ void Weapon_Tommygun (edict_t *ent)
 	{
 		if (level.time >= ent->pain_debounce_time)
 		{
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 			ent->pain_debounce_time = level.time + 1;
 		}
 		NoAmmoWeaponChange (ent);
@@ -2296,7 +2239,7 @@ void Weapon_Tommygun (edict_t *ent)
 
 				ent->client->pers.weapon_clip[ent->client->clip_index] = rounds;
 				ent->client->pers.inventory[ent->client->ammo_index] -= rounds;
-				gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/machinegun/machgcock.wav"), 1, ATTN_NORM, 0);
+				gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/machinegun/machgcock.wav"), 1, ATTN_NORM, 0);
 			}
 
 			ent->client->reload_weapon = false;
@@ -2319,7 +2262,7 @@ void Weapon_Tommygun (edict_t *ent)
 
 			ent->client->pers.weapon_clip[ent->client->clip_index] = rounds;
 			ent->client->pers.inventory[ent->client->ammo_index] -= rounds;
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/machinegun/machgcock.wav"), 1, ATTN_NORM, 0);
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/machinegun/machgcock.wav"), 1, ATTN_NORM, 0);
 		}
 	}
 
@@ -2351,7 +2294,7 @@ void FlameThrower_Fire (edict_t *ent)
 
 	if (ent->waterlevel >= 2)
 	{
-		// gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
+		// gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
 		if (ent->client->weaponstate == WEAPON_FIRING)
 		{
 			ent->client->weaponstate = WEAPON_READY;
@@ -2361,7 +2304,7 @@ void FlameThrower_Fire (edict_t *ent)
 		return;
 	}
 
-	if (deathmatch->value && rand()%2)
+	if (deathmatch_value && rand()%2)
 		damage = 1;
 
 	if (ent->health <= 0)
@@ -2371,7 +2314,7 @@ void FlameThrower_Fire (edict_t *ent)
 	{
 		// ent->client->machinegun_shots = 0;
 		ent->client->ps.gunframe = 14;
-		gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/flame_thrower/flameend.wav"), 1, ATTN_NORM, 0);
+		gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/flame_thrower/flameend.wav"), 1, ATTN_NORM, 0);
 		flamesnd = 0;
 		ent->s.renderfx2 &= ~RF2_FLAMETHROWER;
 		return;
@@ -2388,7 +2331,7 @@ void FlameThrower_Fire (edict_t *ent)
 		
 		if (level.time >= ent->pain_debounce_time)
 		{
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 			ent->pain_debounce_time = level.time + 1;
 		}
 		NoAmmoWeaponChange (ent);
@@ -2410,8 +2353,6 @@ void FlameThrower_Fire (edict_t *ent)
 	
 	fire_flamethrower (ent, start, forward, damage, kick, MOD_FLAMETHROWER);
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
-
 	ent->s.renderfx2 |= RF2_FLAMETHROWER;
 
 	flamesnd++;
@@ -2427,16 +2368,11 @@ void FlameThrower_Fire (edict_t *ent)
 		gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/flame_thrower/flame1.wav"), 1, ATTN_NORM, 0);
 
 
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value ) )
+	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value ) )
 	{
 		if ((ent->client->pers.inventory[ent->client->ammo_index] -= 2) < 0)
 			ent->client->pers.inventory[ent->client->ammo_index] = 0;
 	}
-
-	// RAFAEL	28-dec-98
-	ent->client->gun_noise = true;
-
-
 }
 
 void Weapon_FlameThrower (edict_t *ent)
@@ -2464,7 +2400,7 @@ void shotgun_fire (edict_t *ent)
 
 	if (ent->waterlevel >= 2)
 	{
-		// gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
+		// gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
 		if (ent->client->weaponstate == WEAPON_FIRING)
 		{
 			ent->client->weaponstate = WEAPON_READY;
@@ -2473,7 +2409,7 @@ void shotgun_fire (edict_t *ent)
 		return;
 	}
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		damage *= 2;
 
 	AngleVectors (ent->client->v_angle, forward, right, NULL);
@@ -2482,14 +2418,10 @@ void shotgun_fire (edict_t *ent)
 
 	P_ProjectSource (ent->client, ent->s.origin, offset, forward, right, start);
 	
-	if (deathmatch->value)
 	{
 		fire_shotgun (ent, start, forward, damage, kick, 500, 500, DEFAULT_SAWED_SHOTGUN_COUNT, MOD_SHOTGUN);
 	}
-	else
-	{
-		fire_shotgun (ent, start, forward, damage, kick, 500, 500, DEFAULT_SAWED_SHOTGUN_COUNT, MOD_SHOTGUN);
-	}
+
 	VectorScale (forward, -2, ent->client->kick_origin);
 	
 	// send muzzle flash
@@ -2499,14 +2431,11 @@ void shotgun_fire (edict_t *ent)
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
 	ent->client->ps.gunframe++;
-	PlayerNoise(ent, start, PNOISE_WEAPON);
 	
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value ) )
+	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value ) )
 		ent->client->pers.weapon_clip[ent->client->clip_index]--;
 	
 	Eject_Shotgun_Shell(ent);
-	ent->client->gun_noise = true;
-
 }
 
 void Weapon_Shotgun_Fire (edict_t *ent)
@@ -2536,7 +2465,7 @@ void Weapon_Shotgun_Fire (edict_t *ent)
 			{
 				if (level.time >= ent->pain_debounce_time)
 				{
-					gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+					gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 					ent->pain_debounce_time = level.time + 1;
 				}
 				NoAmmoWeaponChange (ent);
@@ -2634,7 +2563,7 @@ void Weapon_Shotgun (edict_t *ent)
 		{
 			if (level.time >= ent->pain_debounce_time)
 			{
-				gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+				gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 				ent->pain_debounce_time = level.time + 1;
 			}
 			NoAmmoWeaponChange (ent);
@@ -2646,7 +2575,7 @@ void Weapon_Shotgun (edict_t *ent)
 	
 	if (ent->client->ps.gunframe == 21)
 	{
-		gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/shotgun/shotgload.wav"), 1, ATTN_NORM, 0);
+		gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/shotgun/shotgload.wav"), 1, ATTN_NORM, 0);
 	}
 
 	Weapon_Generic (ent, 5, 32, 40, 45, pause_frames, fire_frames, Weapon_Shotgun_Fire);
@@ -2677,7 +2606,7 @@ void weapon_barmachinegun_fire (edict_t *ent)
 
 	if (ent->waterlevel >= 2)
 	{
-		// gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
+		// gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
 		if (ent->client->weaponstate == WEAPON_FIRING)
 		{
 			ent->client->weaponstate = WEAPON_READY;
@@ -2686,7 +2615,7 @@ void weapon_barmachinegun_fire (edict_t *ent)
 		return;
 	}
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 	{	
 		// tone down if too much in deathmatch
 		damage = 50;
@@ -2715,9 +2644,7 @@ void weapon_barmachinegun_fire (edict_t *ent)
 		gi.WriteByte (MZ_BARMACHINEGUN2 | is_silenced);
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
-
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value ) )
+	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value ) )
 	{
 		ent->client->pers.weapon_clip [ent->client->clip_index]--;
 
@@ -2734,8 +2661,6 @@ void weapon_barmachinegun_fire (edict_t *ent)
 		
 	}
     Eject_Tommy_Shell(ent);
-	ent->client->gun_noise = true;
-
 }
 
 void barmachinegun_fire (edict_t *ent)
@@ -2795,7 +2720,7 @@ void Weapon_Barmachinegun (edict_t *ent)
 	{
 		if (level.time >= ent->pain_debounce_time)
 		{
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 			ent->pain_debounce_time = level.time + 1;
 		}
 		NoAmmoWeaponChange (ent);
@@ -2820,7 +2745,7 @@ void Weapon_Barmachinegun (edict_t *ent)
 
 				ent->client->pers.weapon_clip[ent->client->clip_index] = rounds;
 				ent->client->pers.inventory[ent->client->ammo_index] -= rounds;
-				gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/hmg/hmgcock.wav"), 1, ATTN_NORM, 0);
+				gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/hmg/hmgcock.wav"), 1, ATTN_NORM, 0);
 			}
 
 			ent->client->reload_weapon = false;
@@ -2843,7 +2768,7 @@ void Weapon_Barmachinegun (edict_t *ent)
 
 			ent->client->pers.weapon_clip[ent->client->clip_index] = rounds;
 			ent->client->pers.inventory[ent->client->ammo_index] -= rounds;
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/hmg/hmgcock.wav"), 1, ATTN_NORM, 0);
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/hmg/hmgcock.wav"), 1, ATTN_NORM, 0);
 		}
 	}
 
@@ -2871,7 +2796,7 @@ void Eject_Grenade_Shell (edict_t *ent)
 	if (!(ent->client))
 		return;
 
-	if (deathmatch->value)
+	if (deathmatch_value)
 		return;
 
 	//gi.dprintf("angles = %s\n", vtos(ent->s.angles));
@@ -2929,7 +2854,7 @@ void weapon_grenadelauncher_fire (edict_t *ent)
 
 	if (ent->waterlevel >= 2)
 	{
-		// gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
+		// gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
 		if (ent->client->weaponstate == WEAPON_FIRING)
 		{
 			ent->client->weaponstate = WEAPON_READY;
@@ -2958,9 +2883,7 @@ void weapon_grenadelauncher_fire (edict_t *ent)
 
 	ent->client->ps.gunframe++;
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
-
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value ) )
+	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value ) )
 	{
 		ent->client->pers.weapon_clip[ent->client->clip_index]--;
 	
@@ -2972,9 +2895,6 @@ void weapon_grenadelauncher_fire (edict_t *ent)
 	}
 		
 	Eject_Grenade_Shell(ent);
-	
-	ent->client->gun_noise = true;
-
 }
 
 void Weapon_GrenadeLauncher_Fire (edict_t *ent)
@@ -3008,7 +2928,7 @@ void Weapon_GrenadeLauncher (edict_t *ent)
 			{
 				if (level.time >= ent->pain_debounce_time)
 				{
-					gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+					gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 					ent->pain_debounce_time = level.time + 1;
 				}
 				NoAmmoWeaponChange (ent);
@@ -3033,7 +2953,7 @@ void Weapon_GrenadeLauncher (edict_t *ent)
 
 				ent->client->pers.weapon_clip[ent->client->clip_index] = rounds;
 				ent->client->pers.inventory[ent->client->ammo_index] -= rounds;
-				gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/grenade_launcher/reload.wav"), 1, ATTN_NORM, 0);
+				gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/grenade_launcher/reload.wav"), 1, ATTN_NORM, 0);
 			}
 
 			ent->client->reload_weapon = false;
@@ -3056,7 +2976,7 @@ void Weapon_GrenadeLauncher (edict_t *ent)
 
 			ent->client->pers.weapon_clip[ent->client->clip_index] = rounds;
 			ent->client->pers.inventory[ent->client->ammo_index] -= rounds;
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/grenade_launcher/reload.wav"), 1, ATTN_NORM, 0);
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/grenade_launcher/reload.wav"), 1, ATTN_NORM, 0);
 		}
 	}
 
@@ -3090,7 +3010,7 @@ void weapon_rocketlauncher_fire (edict_t *ent)
 	
 	if (ent->waterlevel >= 2)
 	{
-		// gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
+		// gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);	
 		if (ent->client->weaponstate == WEAPON_FIRING)
 		{
 			ent->client->weaponstate = WEAPON_READY;
@@ -3125,9 +3045,7 @@ void weapon_rocketlauncher_fire (edict_t *ent)
 
 	ent->client->ps.gunframe++;
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
-
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch->value ) )
+	if (! ( (int)dmflags->value & DF_INFINITE_AMMO && deathmatch_value ) )
 	{
 		ent->client->pers.weapon_clip[ent->client->clip_index]--;
 		
@@ -3137,9 +3055,6 @@ void weapon_rocketlauncher_fire (edict_t *ent)
 			ent->client->ps.gunframe = 30;		
 		}
 	}
-
-	ent->client->gun_noise = true;
-
 }
 
 void Weapon_RocketLauncher_Fire (edict_t *ent)
@@ -3171,7 +3086,7 @@ void Weapon_RocketLauncher (edict_t *ent)
 	{
 		if (level.time >= ent->pain_debounce_time)
 		{
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/noammo.wav"), 1, ATTN_NORM, 0);
 			ent->pain_debounce_time = level.time + 1;
 		}
 		NoAmmoWeaponChange (ent);
@@ -3182,8 +3097,12 @@ void Weapon_RocketLauncher (edict_t *ent)
 		{
 			if (ent->client->pers.weapon_clip[ent->client->clip_index] < MAX_ROCKET_ROUNDS)
 			{
-				ent->client->ps.gunframe = 14;
-				ent->client->weaponstate = WEAPON_RELOADING;
+				// instant reloading in rocketmode
+				if (dm_realmode->value != 2)
+				{
+					ent->client->ps.gunframe = 14;
+					ent->client->weaponstate = WEAPON_RELOADING;
+				}
 				
 				ent->client->pers.inventory[ent->client->ammo_index] += ent->client->pers.weapon_clip[ent->client->clip_index];	
 
@@ -3196,7 +3115,8 @@ void Weapon_RocketLauncher (edict_t *ent)
 
 				ent->client->pers.weapon_clip[ent->client->clip_index] = rounds;
 				ent->client->pers.inventory[ent->client->ammo_index] -= rounds;
-				gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/rocket_launcher/reload.wav"), 1, ATTN_NORM, 0);
+				if (dm_realmode->value != 2)
+					gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/rocket_launcher/reload.wav"), 1, ATTN_NORM, 0);
 			}
 
 			ent->client->reload_weapon = false;
@@ -3207,8 +3127,11 @@ void Weapon_RocketLauncher (edict_t *ent)
 		if (ent->client->ps.gunframe >= 30 && ent->client->ps.gunframe <= 41)
 		{
 			ent->client->reload_weapon = false;
-			ent->client->ps.gunframe = 14;
-			ent->client->weaponstate = WEAPON_RELOADING;
+			if (dm_realmode->value != 2)
+			{
+				ent->client->ps.gunframe = 14;
+				ent->client->weaponstate = WEAPON_RELOADING;
+			}
 
 			if (ent->client->pers.inventory[ent->client->ammo_index] < MAX_ROCKET_ROUNDS)
 			{
@@ -3219,7 +3142,8 @@ void Weapon_RocketLauncher (edict_t *ent)
 
 			ent->client->pers.weapon_clip[ent->client->clip_index] = rounds;
 			ent->client->pers.inventory[ent->client->ammo_index] -= rounds;
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("weapons/rocket_launcher/reload.wav"), 1, ATTN_NORM, 0);
+			if (dm_realmode->value != 2)
+				gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/rocket_launcher/reload.wav"), 1, ATTN_NORM, 0);
 		}
 	}
 	

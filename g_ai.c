@@ -22,7 +22,7 @@ void AI_GetAvoidDirection( edict_t *self, edict_t *other );
 
 
 //============================================================================
-
+#if 0	// single player stuff
 /*
 =============
 ai_onfire_run
@@ -240,6 +240,7 @@ void AI_CheckEvade( edict_t *self )
 	self->cast_info.currentmove = self->cast_info.move_stand;
 
 }
+#endif
 
 /*
 =============
@@ -334,7 +335,7 @@ again:
 	return rval;
 }
 
-
+#if 0	// single player stuff
 /*
 =============
 AI_MoveToPlatCenter
@@ -2817,6 +2818,7 @@ void ai_sidestep( edict_t *self, float dist)
 	M_ChangeYaw (self);
 
 }
+#endif
 
 /*
 =============
@@ -2972,6 +2974,7 @@ qboolean FacingIdeal(edict_t *self)
 
 //=============================================================================
 
+#if 0	// single player stuff
 extern void button_use (edict_t *self, edict_t *other, edict_t *activator);
 extern void func_explosive_use(edict_t *self, edict_t *other, edict_t *activator);
 extern void func_explosive_explode (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage, vec3_t point, int mdx_part, int mdx_subobject);
@@ -3354,6 +3357,7 @@ void AI_climb (edict_t *self)
 
 	self->s.frame = self->cast_info.move_stand->firstframe;
 }
+#endif
 
 qboolean ValidBoxAtLoc(vec3_t org, vec3_t mins, vec3_t maxs, edict_t *ignore, int mask)
 {
@@ -3386,6 +3390,7 @@ void AI_GetAvoidDirection( edict_t *self, edict_t *other )
 
 // Ridah, done.
 
+#if 0	// single player stuff
 //------------------------------------------------------------------------------
 // New AI system
 //
@@ -4786,3 +4791,4 @@ void ai_runDOKEY (edict_t *self, float dist)
 {
 	AI_movetogoal(self, self->goal_ent, dist);
 }
+#endif
